@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ODT Converter - 現代化文檔格式轉換器</title>
+  <!-- Google Fonts: Outfit for headings, Inter for body -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <!-- Lucide Icons (via unpkg) for modern minimal icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="app-container">
+    <!-- Header -->
+    <header class="app-header">
+      <div class="logo-area">
+        <div class="logo-icon">
+          <i data-lucide="file-text"></i>
+        </div>
+        <div class="logo-text">
+          <h1>ODT<span>Converter</span></h1>
+          <p>輕量、現代的文檔格式轉換工具</p>
+        </div>
+      </div>
+      <div class="header-actions">
+        <div class="format-selector">
+          <span class="label">輸出格式</span>
+          <div class="select-wrapper">
+            <select id="output-format">
+              <option value="md" selected>Markdown (.md)</option>
+              <option value="html" disabled>HTML (.html) - 即將推出</option>
+              <option value="pdf" disabled>PDF (.pdf) - 即將推出</option>
+            </select>
+            <i data-lucide="chevron-down" class="select-arrow"></i>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <div class="app-content">
+      <!-- Left Panel: Upload & History -->
+      <aside class="sidebar">
+        <!-- Upload Card -->
+        <div class="glass-card upload-card">
+          <div class="card-header">
+            <i data-lucide="upload-cloud"></i>
+            <h2>上傳 ODT 檔案</h2>
+          </div>
+          
+          <div class="drop-zone" id="drop-zone">
+            <div class="drop-zone-content">
+              <div class="drop-zone-icon">
+                <i data-lucide="file-up"></i>
+              </div>
+              <h3>將 .odt 檔案拖曳至此</h3>
+              <p>或點擊此處瀏覽電腦檔案</p>
+              <span class="file-limit">支援最大 50MB 檔案</span>
+            </div>
+            <input type="file" id="file-input" accept=".odt" style="display: none;">
+          </div>
+
+          <div class="selected-file-info" id="selected-file-info" style="display: none;">
+            <div class="file-details">
+              <i data-lucide="file" class="file-icon"></i>
+              <div class="file-meta">
+                <span class="file-name" id="display-file-name">document.odt</span>
+                <span class="file-size" id="display-file-size">1.2 MB</span>
+              </div>
+            </div>
+            <button class="btn btn-primary" id="btn-convert">
+              <span>開始轉換</span>
+              <i data-lucide="arrow-right"></i>
+            </button>
+          </div>
+        </div>
+
+        <!-- History Card -->
+        <div class="glass-card history-card">
+          <div class="card-header">
+            <i data-lucide="history"></i>
+            <h2>轉換歷史記錄</h2>
+          </div>
+          <div class="history-list" id="history-list">
+            <div class="empty-history">
+              <i data-lucide="inbox"></i>
+              <p>尚無轉換記錄</p>
+            </div>
+          </div>
+        </div>
+      </aside>
+
+      <!-- Right Panel: Preview Area -->
+      <main class="main-panel">
+        <div class="glass-card preview-card">
+          <!-- Control bar for preview -->
+          <div class="preview-header">
+            <div class="preview-tabs">
+              <button class="tab-btn active" data-tab="rendered">
+                <i data-lucide="eye"></i>
+                排版預覽
+              </button>
+              <button class="tab-btn" data-tab="raw">
+                <i data-lucide="code"></i>
+                Markdown 源碼
+              </button>
+            </div>
+            
+            <div class="preview-actions">
+              <button class="btn btn-secondary" id="btn-copy" disabled>
+                <i data-lucide="copy"></i>
+                <span>複製內容</span>
+              </button>
+              <button class="btn btn-success" id="btn-open-folder" disabled>
+                <i data-lucide="folder-open"></i>
+                <span>開啟輸出資料夾</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Preview Content -->
+          <div class="preview-body">
+            <!-- Loading Indicator -->
+            <div class="loader-container" id="loader" style="display: none;">
+              <div class="spinner"></div>
+              <h3>正在解析 ODT 文件並轉換...</h3>
+              <p>擷取樣式、格式與圖片中</p>
+            </div>
+
+            <!-- Welcome Screen -->
+            <div class="welcome-screen" id="welcome-screen">
+              <div class="welcome-illustration">
+                <i data-lucide="refresh-cw" class="spin-slow"></i>
+              </div>
+              <h2>準備轉換您文件</h2>
+              <p>在左側上傳 ODT 檔案，即可在此處即時預覽與編輯產出的 Markdown 內容</p>
+            </div>
+
+            <!-- Output Info Panel (Stats) -->
+            <div class="output-info-bar" id="output-info-bar" style="display: none;">
+              <div class="info-stat">
+                <span class="stat-label">產出路徑</span>
+                <span class="stat-value" id="info-path">output/2026-07-13_110300/</span>
+              </div>
+              <div class="info-stat">
+                <span class="stat-label">提取圖片數</span>
+                <span class="stat-value" id="info-images">0 張</span>
+              </div>
+            </div>
+
+            <!-- Rendered Markdown Preview -->
+            <div class="tab-content active" id="tab-rendered" style="display: none;">
+              <div class="markdown-body" id="markdown-rendered">
+                <!-- HTML rendered preview will go here -->
+              </div>
+            </div>
+
+            <!-- Raw Markdown Code -->
+            <div class="tab-content" id="tab-raw" style="display: none;">
+              <textarea class="markdown-raw" id="markdown-raw" readonly placeholder="Markdown 程式碼將顯示於此..."></textarea>
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <!-- Notification Toast -->
+  <div class="toast" id="toast">
+    <i data-lucide="info" class="toast-icon"></i>
+    <span class="toast-message">提示訊息</span>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

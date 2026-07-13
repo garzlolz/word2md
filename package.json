@@ -1,0 +1,22 @@
+{
+  "name": "odt-converter",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js",
+    "convert": "node run-convert.js",
+    "gen-test": "node generate-test-odt.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "@xmldom/xmldom": "^0.9.10",
+    "adm-zip": "^0.6.0",
+    "express": "^5.2.1",
+    "multer": "^2.2.0"
+  }
+}
