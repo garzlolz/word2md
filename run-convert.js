@@ -16,11 +16,9 @@ function getTimestampFolder() {
 }
 
 function escapeMarkdown(text) {
+  // 避免過度轉義中文字元間的星號 * 或底線 _，以提供更清爽的中文排版讀寫體驗
   return text
     .replace(/\\/g, '\\\\')
-    .replace(/\*/g, '\\*')
-    .replace(/_/g, '\\_')
-    .replace(/`/g, '\\`')
     .replace(/\[/g, '\\[')
     .replace(/\]/g, '\\]');
 }
@@ -46,6 +44,17 @@ function parseStyles(doc) {
     }
   }
   return styles;
+}
+
+function isInsideHeader(node) {
+  let parent = node.parentNode;
+  while (parent) {
+    if (parent.tagName === 'text:h' || parent.nodeName === 'text:h') {
+      return true;
+    }
+    parent = parent.parentNode;
+  }
+  return false;
 }
 
 function convertElement(node, styles, imageMap, listState = { level: 0, ordered: false }) {
@@ -81,7 +90,8 @@ function convertElement(node, styles, imageMap, listState = { level: 0, ordered:
         
         const style = styles[styleName];
         if (style) {
-          if (style.bold) content = `**${content}**`;
+          const skipBold = isInsideHeader(node);
+          if (style.bold && !skipBold) content = `**${content}**`;
           if (style.italic) content = `*${content}*`;
           if (style.strike) content = `~~${content}~~`;
           if (style.underline) content = `<u>${content}</u>`;

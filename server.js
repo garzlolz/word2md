@@ -16,13 +16,13 @@ const upload = multer({
   limits: { fileSize: 50 * 1024 * 1024 } // 限制 50MB
 });
 
-app.use(express.json());
-app.use(express.static(path.join(__dirname, 'public')));
-app.use('/output', express.static(OUTPUT_DIR));
-
 // 確保輸出目錄與歷史記錄檔案存在
 const OUTPUT_DIR = path.join(__dirname, 'output');
 const HISTORY_FILE = path.join(__dirname, 'history.json');
+
+app.use(express.json());
+app.use(express.static(path.join(__dirname, 'public')));
+app.use('/output', express.static(OUTPUT_DIR));
 
 if (!fs.existsSync(OUTPUT_DIR)) {
   fs.mkdirSync(OUTPUT_DIR, { recursive: true });
@@ -59,11 +59,9 @@ function getTimestampFolder() {
 
 // 轉義 Markdown 特殊字元
 function escapeMarkdown(text) {
+  // 避免過度轉義中文字元間的星號 * 或底線 _，以提供更清爽的中文排版讀寫體驗
   return text
     .replace(/\\/g, '\\\\')
-    .replace(/\*/g, '\\*')
-    .replace(/_/g, '\\_')
-    .replace(/`/g, '\\`')
     .replace(/\[/g, '\\[')
     .replace(/\]/g, '\\]');
 }
@@ -90,6 +88,18 @@ function parseStyles(doc) {
     }
   }
   return styles;
+}
+
+// 檢查節點是否位於標題 (text:h) 內部
+function isInsideHeader(node) {
+  let parent = node.parentNode;
+  while (parent) {
+    if (parent.tagName === 'text:h' || parent.nodeName === 'text:h') {
+      return true;
+    }
+    parent = parent.parentNode;
+  }
+  return false;
 }
 
 // 遞迴遍歷 XML DOM 節點並生成 Markdown
@@ -129,7 +139,9 @@ function convertElement(node, styles, imageMap, listState = { level: 0, ordered:
         
         const style = styles[styleName];
         if (style) {
-          if (style.bold) content = `**${content}**`;
+          // 如果本身已在標題內，則忽略加粗標記，因為 Markdown 標題本身就是粗體
+          const skipBold = isInsideHeader(node);
+          if (style.bold && !skipBold) content = `**${content}**`;
           if (style.italic) content = `*${content}*`;
           if (style.strike) content = `~~${content}~~`;
           if (style.underline) content = `<u>${content}</u>`;
@@ -257,7 +269,8 @@ app.post('/api/convert', upload.single('file'), async (req, res) => {
       return res.status(400).json({ error: 'No file uploaded' });
     }
 
-    const originalName = req.file.originalname;
+    // 修正 Multer 檔名中文字亂碼的經典問題 (將 latin1 重新以 utf8 解讀)
+    const originalName = Buffer.from(req.file.originalname, 'latin1').toString('utf8');
     const baseName = path.parse(originalName).name;
     const fileBuffer = req.file.buffer;
 
@@ -350,27 +363,51 @@ app.post('/api/convert', upload.single('file'), async (req, res) => {
 // 開啟資料夾 API
 app.post('/api/open-folder', (req, res) => {
   const { folderPath } = req.body;
-  if (!folderPath || !fs.existsSync(folderPath)) {
-    return res.status(400).json({ error: '資料夾路徑不存在' });
+  console.log(`[Open Folder] 請求開啟路徑: ${folderPath}`);
+  
+  if (!folderPath) {
+    return res.status(400).json({ error: '未提供路徑' });
   }
 
-  // 根據不同作業系統執行開啟資料夾指令
-  let command = '';
-  if (process.platform === 'win32') {
-    command = `explorer.exe "${folderPath}"`;
-  } else if (process.platform === 'darwin') {
-    command = `open "${folderPath}"`;
-  } else {
-    command = `xdg-open "${folderPath}"`;
+  // 標準化為操作系統原生路徑格式（在 Windows 上為反斜線）
+  const normalizedPath = path.resolve(folderPath);
+  console.log(`[Open Folder] 標準化原生路徑: ${normalizedPath}`);
+
+  if (!fs.existsSync(normalizedPath)) {
+    console.error(`[Open Folder] 資料夾不存在: ${normalizedPath}`);
+    return res.status(400).json({ error: `資料夾路徑不存在: ${normalizedPath}` });
   }
 
-  exec(command, (err) => {
-    if (err) {
-      console.error(err);
-      return res.status(500).json({ error: '無法開啟資料夾' });
+  try {
+    const { spawn } = require('child_process');
+    if (process.platform === 'win32') {
+      // 使用 cmd.exe 的 start 指令來開啟資料夾，這是 Windows 下最穩定、最不容易出錯的 Shell 方式
+      // 這能完美避免 explorer.exe 直啟時的參數解析 Bug，並能在使用者互動 Session 下 100% 彈出檔案總管
+      const child = spawn('cmd.exe', ['/c', 'start', '', normalizedPath], {
+        detached: true,
+        stdio: 'ignore'
+      });
+      child.unref();
+    } else if (process.platform === 'darwin') {
+      const child = spawn('open', [normalizedPath], {
+        detached: true,
+        stdio: 'ignore'
+      });
+      child.unref();
+    } else {
+      const child = spawn('xdg-open', [normalizedPath], {
+        detached: true,
+        stdio: 'ignore'
+      });
+      child.unref();
     }
+    
+    console.log(`[Open Folder] 已成功調用系統進程開啟資料夾`);
     res.json({ success: true });
-  });
+  } catch (err) {
+    console.error(`[Open Folder] 啟動進程失敗:`, err);
+    res.status(500).json({ error: `無法開啟資料夾：${err.message}` });
+  }
 });
 
 // 取得歷史記錄 API

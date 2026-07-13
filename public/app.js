@@ -42,11 +42,11 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
     
     // 更新內容顯示
     if (tabName === 'rendered') {
-      tabRendered.style.display = 'block';
+      tabRendered.style.display = 'flex';
       tabRaw.style.display = 'none';
     } else {
       tabRendered.style.display = 'none';
-      tabRaw.style.display = 'block';
+      tabRaw.style.display = 'flex';
     }
   });
 });
@@ -185,9 +185,9 @@ btnConvert.addEventListener('click', async () => {
       // 依據當前選取的 tab 決定顯示哪一個
       const activeTab = document.querySelector('.tab-btn.active').getAttribute('data-tab');
       if (activeTab === 'rendered') {
-        tabRendered.style.display = 'block';
+        tabRendered.style.display = 'flex';
       } else {
-        tabRaw.style.display = 'block';
+        tabRaw.style.display = 'flex';
       }
       
       // 啟用功能按鈕
@@ -220,13 +220,21 @@ btnCopy.addEventListener('click', () => {
     });
 });
 
-// 開啟輸出資料夾
+// 開啟輸出資料夾 (兼具複製路徑後備方案)
 btnOpenFolder.addEventListener('click', () => {
   if (!currentFolderPath) return;
-  openFolder(currentFolderPath);
+  
+  // 先嘗試複製絕對路徑到剪貼簿
+  navigator.clipboard.writeText(currentFolderPath)
+    .then(() => {
+      openFolder(currentFolderPath, true);
+    })
+    .catch(() => {
+      openFolder(currentFolderPath, false);
+    });
 });
 
-async function openFolder(folderPath) {
+async function openFolder(folderPath, pathCopied = false) {
   try {
     const response = await fetch('/api/open-folder', {
       method: 'POST',
@@ -237,7 +245,10 @@ async function openFolder(folderPath) {
     });
     const result = await response.json();
     if (result.success) {
-      showToast('已在檔案總管中開啟輸出資料夾');
+      const msg = pathCopied 
+        ? '已嘗試開啟資料夾（絕對路徑已複製到剪貼簿，可直接貼上）' 
+        : '已在檔案總管中開啟輸出資料夾';
+      showToast(msg);
     } else {
       showToast('無法開啟資料夾：' + result.error, true);
     }
@@ -287,7 +298,9 @@ async function loadHistory() {
         if (e.target.closest('.btn-history-open')) {
           e.stopPropagation();
           const folderPath = el.getAttribute('data-path');
-          openFolder(folderPath);
+          navigator.clipboard.writeText(folderPath)
+            .then(() => openFolder(folderPath, true))
+            .catch(() => openFolder(folderPath, false));
           return;
         }
         
@@ -317,11 +330,11 @@ async function loadHistory() {
             
             const activeTab = document.querySelector('.tab-btn.active').getAttribute('data-tab');
             if (activeTab === 'rendered') {
-              tabRendered.style.display = 'block';
+              tabRendered.style.display = 'flex';
               tabRaw.style.display = 'none';
             } else {
               tabRendered.style.display = 'none';
-              tabRaw.style.display = 'block';
+              tabRaw.style.display = 'flex';
             }
             
             btnCopy.disabled = false;
