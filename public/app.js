@@ -177,6 +177,7 @@ btnConvert.addEventListener('click', async () => {
       // 更新預覽
       markdownRaw.value = currentMarkdown;
       markdownRendered.innerHTML = renderMarkdown(currentMarkdown);
+      markdownRendered.scrollTop = 0;
       
       // 顯示統計資料
       infoPath.textContent = `output/${result.folderName}/`;
@@ -423,7 +424,7 @@ function renderMarkdown(md) {
       // 圖片 ![alt](url) -> 自動導向到伺服器靜態資源路徑
       .replace(/!\[(.*?)\]\((.*?)\)/g, (match, alt, src) => {
         const realSrc = src.startsWith('http') || src.startsWith('/') ? src : `/output/${currentFolder}/${src}`;
-        return `<img src="${realSrc}" alt="${alt}" class="preview-img" />`;
+        return `<img src="${realSrc}" alt="${alt}" class="preview-img" onerror="this.style.display='none'" />`;
       })
       // 連結 [text](url)
       .replace(/\[(.*?)\]\((.*?)\)/g, '<a href="$2" target="_blank">$1</a>');

@@ -265,18 +265,62 @@ function convertChildren(node, styles, imageMap, listState) {
   return result;
 }
 
-// 統一 HTML 轉 Markdown 核心邏輯 (支援 Base64 與 Zip 圖片提取)
+// 統一 HTML 轉 Markdown 核心邏輯 (包含強效雜訊/側邊欄清理與主體內容精準提取)
 function convertHtmlContent(htmlContent, runOutputDir, zipInstance = null) {
-  const cleanHtml = htmlContent
+  // 1. 移除無效或干擾腳本與樣式
+  let cleanHtml = htmlContent
     .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
     .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '')
     .replace(/<noscript\b[^<]*(?:(?!<\/noscript>)<[^<]*)*<\/noscript>/gi, '');
+
+  // 2. 移除 1x1 gif 佔位符圖片 (例如 Notion emoji 佔位符 gif)
+  cleanHtml = cleanHtml.replace(/<img[^>]*data:image\/gif;base64,R0lGODlhAQABAIA[^>]*>/gi, '');
+
+  // 3. 強效清理頁面側邊欄、導覽列與邊角無關 DOM (Notion / Confluence / 常見網頁導覽)
+  cleanHtml = cleanHtml
+    .replace(/<nav\b[^<]*(?:(?!<\/nav>)<[^<]*)*<\/nav>/gi, '')
+    .replace(/<aside\b[^<]*(?:(?!<\/aside>)<[^<]*)*<\/aside>/gi, '')
+    .replace(/<div[^>]*class="[^"]*notion-sidebar[^"]*"[^>]*>[\s\S]*?<\/div>/gi, '')
+    .replace(/<div[^>]*class="[^"]*notion-topbar[^"]*"[^>]*>[\s\S]*?<\/div>/gi, '')
+    .replace(/<div[^>]*id="skip-to-content"[^>]*>[\s\S]*?<\/div>/gi, '');
+
+  // 4. 嘗試提取主內容區塊 (.notion-page-scroller, .notion-frame, main, article)
+  try {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(cleanHtml, 'text/html');
+
+    const scrollerNode = doc.getElementsByClassName ? doc.getElementsByClassName('notion-page-scroller')[0] : null;
+    const frameNode = doc.getElementsByClassName ? doc.getElementsByClassName('notion-frame')[0] : null;
+    const mainNode = doc.getElementsByTagName ? doc.getElementsByTagName('main')[0] : null;
+    const articleNode = doc.getElementsByTagName ? doc.getElementsByTagName('article')[0] : null;
+
+    const targetNode = scrollerNode || frameNode || mainNode || articleNode;
+    if (targetNode && targetNode.toString) {
+      cleanHtml = targetNode.toString();
+    }
+  } catch (e) {
+    // 若 DOM 解析出錯則順暢退回正則清理後的 HTML
+  }
 
   const turndownService = new TurndownService({
     headingStyle: 'atx',
     codeBlockStyle: 'fenced'
   });
   turndownService.use(gfm);
+
+  // 忽略網頁導覽與無關空連結
+  turndownService.addRule('ignoreNavLinks', {
+    filter: function (node) {
+      const text = (node.textContent || '').trim();
+      const href = node.getAttribute('href') || '';
+      if (text === '跳至內容' || href.includes('#main')) return true;
+      if (text === '網訊電通股份有限公司' || text === '訪客') return true;
+      return false;
+    },
+    replacement: function () {
+      return '';
+    }
+  });
 
   const extractedImages = [];
   let imgCounter = 0;
@@ -287,7 +331,10 @@ function convertHtmlContent(htmlContent, runOutputDir, zipInstance = null) {
       const src = node.getAttribute('src') || '';
       const alt = node.getAttribute('alt') || 'image';
 
-      if (!src) return '';
+      if (!src || src.includes('data:image/gif;base64,R0lGODlhAQABAIA')) return '';
+
+      // 忽略 Notion 側邊欄大頭貼與無用 Icon 圖片
+      if (src.includes('googleusercontent') && src.includes('photo.jpg')) return '';
 
       // 1. 處理 Base64 編碼圖片
       if (src.startsWith('data:image/')) {
@@ -310,10 +357,19 @@ function convertHtmlContent(htmlContent, runOutputDir, zipInstance = null) {
         }
       }
 
+      const validImgExts = ['.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg', '.bmp', '.ico'];
+
       // 2. 若有 ZIP 壓縮檔實例，尋找 zip 內相對應的圖片檔案條目 (包含 _files 資料夾)
       if (zipInstance && !src.startsWith('http://') && !src.startsWith('https://')) {
         const decodedSrc = decodeURIComponent(src).replace(/\\/g, '/');
         const targetFileName = path.basename(decodedSrc);
+        const ext = path.extname(targetFileName).toLowerCase();
+
+        // 若副檔名不是合法圖片格式，忽略此標籤 (防止 tag, txt 等非圖片檔導致破圖)
+        if (!validImgExts.includes(ext)) {
+          return '';
+        }
+
         const entries = zipInstance.getEntries();
 
         let matchedEntry = entries.find(e => !e.isDirectory && (e.entryName.endsWith(decodedSrc) || e.entryName === decodedSrc));
@@ -326,7 +382,8 @@ function convertHtmlContent(htmlContent, runOutputDir, zipInstance = null) {
           if (!fs.existsSync(picturesDir)) {
             fs.mkdirSync(picturesDir, { recursive: true });
           }
-          const imgFileName = path.basename(matchedEntry.entryName);
+          imgCounter++;
+          const imgFileName = `image_${imgCounter}${ext}`;
           const destPath = path.join(picturesDir, imgFileName);
           fs.writeFileSync(destPath, matchedEntry.getData());
           extractedImages.push(imgFileName);
@@ -336,18 +393,122 @@ function convertHtmlContent(htmlContent, runOutputDir, zipInstance = null) {
 
       // 3. 一般非遠端圖片路徑
       if (!src.startsWith('http://') && !src.startsWith('https://')) {
-        const fileName = path.basename(src);
-        return `![${alt}](Pictures/${fileName})`;
+        const fileNameOnly = path.basename(src.split('?')[0]);
+        const ext = path.extname(fileNameOnly).toLowerCase();
+        if (!validImgExts.includes(ext)) {
+          return '';
+        }
+        imgCounter++;
+        const imgFileName = `image_${imgCounter}${ext}`;
+        return `![${alt}](Pictures/${imgFileName})`;
       }
 
-      return `![${alt}](${src})`;
+      // 4. 遠端圖片連結處理
+      if (src.startsWith('http://') || src.startsWith('https://')) {
+        const fileNameOnly = path.basename(src.split('?')[0]);
+        const ext = path.extname(fileNameOnly).toLowerCase();
+        if (validImgExts.includes(ext)) {
+          return `![${alt}](${src})`;
+        }
+        return '';
+      }
+
+      return '';
     }
   });
 
   let markdown = turndownService.turndown(cleanHtml);
+
+  // 5. 雙重後處理防護：徹底過濾任何未成功提取實體檔案或無效圖片副檔名之破圖標記
+  const validImgExts = ['.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg', '.bmp', '.ico'];
+  markdown = markdown.replace(/!\[.*?\]\(Pictures\/[^\)]*\)/g, (match) => {
+    const matchFile = match.match(/Pictures\/([^\)]+)/);
+    if (matchFile) {
+      const fileName = matchFile[1];
+      const ext = path.extname(fileName).toLowerCase();
+      if (!validImgExts.includes(ext)) {
+        return '';
+      }
+      const pictureFilePath = path.join(runOutputDir, 'Pictures', fileName);
+      if (!fs.existsSync(pictureFilePath)) {
+        return ''; // 若實體檔案不存在，拋棄此破圖語法
+      }
+    }
+    return match;
+  });
+
+  // 6. 版面與屬性欄位結構化美化
+  markdown = formatPropertiesSection(markdown);
   markdown = markdown.replace(/\n{3,}/g, '\n\n').trim();
 
   return { markdown, extractedImages };
+}
+
+// 重構散亂屬性區塊為美觀之 Markdown 表格
+function formatPropertiesSection(markdownText) {
+  const propertyKeys = [
+    'Assign To', 'ID', 'Num', 'Sprint', '年份', '中心', '類型',
+    'Owner', 'QA', '卡片點數', '狀態', 'Release Date', 'Release',
+    'Created', 'Hotfix Date', 'Last edited by'
+  ];
+
+  let lines = markdownText
+    .split('\n')
+    .map(l => l.trim())
+    .filter(l => l !== '' && l !== '[' && l !== ']' && l !== 'F' && l !== 'K' && l !== 'R' && l !== '新');
+
+  let resultLines = [];
+  let inProperties = false;
+  let propMap = [];
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+
+    // 徹底剔除頁首頁尾與側邊欄離線雜訊
+    if (line === '99+' || line === '跳至內容' || line === 'TE PBI' || line.includes('網訊電通股份有限公司') || line.includes('| Notion') || line.includes('已於') || line.includes('編輯') || line === '首頁' || line === '99+收件匣' || line === '共用' || line === '說明' || line === '媒體櫃' || line === 'P1 Sprint schedule' || line === 'IVR Asterisk 開發文件' || line.includes('NLP與B/C端對接文件') || line === '2024 PBI') {
+      continue;
+    }
+
+    if (propertyKeys.includes(line)) {
+      inProperties = true;
+      let values = [];
+      let j = i + 1;
+      while (j < lines.length && !propertyKeys.includes(lines[j]) && !lines[j].startsWith('#') && lines[j] !== '另外 31 個屬性' && lines[j] !== '留言') {
+        values.push(lines[j]);
+        j++;
+      }
+      propMap.push({ key: line, value: values.join(' ') || '空' });
+      i = j - 1;
+    } else {
+      if (inProperties && (line.startsWith('#') || line === '需求目的' || line.startsWith('##'))) {
+        if (propMap.length > 0) {
+          resultLines.push('| 屬性名稱 | 屬性內容 |');
+          resultLines.push('| :--- | :--- |');
+          propMap.forEach(p => {
+            resultLines.push(`| **${p.key}** | ${p.value} |`);
+          });
+          resultLines.push('');
+          propMap = [];
+        }
+        inProperties = false;
+      }
+
+      if (!inProperties && line !== '另外 31 個屬性' && line !== '留言' && line !== 'F') {
+        resultLines.push(line);
+      }
+    }
+  }
+
+  if (propMap.length > 0) {
+    resultLines.push('| 屬性名稱 | 屬性內容 |');
+    resultLines.push('| :--- | :--- |');
+    propMap.forEach(p => {
+      resultLines.push(`| **${p.key}** | ${p.value} |`);
+    });
+    propMap = [];
+  }
+
+  return resultLines.join('\n\n');
 }
 
 // 核心轉換 API (支援 ODT, PDF, HTML 及 ZIP 網頁包)
@@ -359,6 +520,7 @@ app.post('/api/convert', upload.single('file'), async (req, res) => {
 
     // 修正 Multer 檔名中文字亂碼的經典問題 (將 latin1 重新以 utf8 解讀)
     const originalName = Buffer.from(req.file.originalname, 'latin1').toString('utf8');
+    console.log(`\n[API Convert Request] 收到上傳檔案: ${originalName}`);
     const baseName = path.parse(originalName).name;
     const fileBuffer = req.file.buffer;
     const ext = path.extname(originalName).toLowerCase();
@@ -428,11 +590,31 @@ app.post('/api/convert', upload.single('file'), async (req, res) => {
       } else {
         // --- 2. ZIP 內含網頁檔 (.html / .htm) 解析流程 ---
         const entries = zip.getEntries();
-        const htmlEntry = entries.find(e => !e.isDirectory && (e.entryName.toLowerCase().endsWith('.html') || e.entryName.toLowerCase().endsWith('.htm')));
+        // 優先排除 _files 附屬資料夾與小工具 HTML 檔案，搜尋主文章網頁檔
+        const htmlEntries = entries.filter(e => {
+          if (e.isDirectory) return false;
+          const name = e.entryName.toLowerCase().replace(/\\/g, '/');
+          return (name.endsWith('.html') || name.endsWith('.htm')) && !name.includes('_files') && !name.includes('__macosx');
+        });
+
+        let htmlEntry = null;
+        if (htmlEntries.length > 0) {
+          // 若有多個，選擇檔案容量最大的主網頁檔
+          htmlEntries.sort((a, b) => (b.header ? b.header.size : 0) - (a.header ? a.header.size : 0));
+          htmlEntry = htmlEntries[0];
+        } else {
+          const allHtml = entries.filter(e => !e.isDirectory && (e.entryName.toLowerCase().endsWith('.html') || e.entryName.toLowerCase().endsWith('.htm')));
+          if (allHtml.length > 0) {
+            allHtml.sort((a, b) => (b.header ? b.header.size : 0) - (a.header ? a.header.size : 0));
+            htmlEntry = allHtml[0];
+          }
+        }
 
         if (!htmlEntry) {
           return res.status(400).json({ error: '無效的檔案格式：ZIP 檔案內找不到 .html 網頁檔或 content.xml (ODT)' });
         }
+
+        console.log(`[ZIP Converter] 成功選取主文章 HTML: ${htmlEntry.entryName} (Size: ${htmlEntry.header ? htmlEntry.header.size : 0} bytes)`);
 
         const htmlContent = htmlEntry.getData().toString('utf8');
         const converted = convertHtmlContent(htmlContent, runOutputDir, zip);
