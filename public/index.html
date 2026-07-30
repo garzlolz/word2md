@@ -45,7 +45,7 @@
         <div class="glass-card upload-card">
           <div class="card-header">
             <i data-lucide="upload-cloud"></i>
-            <h2>上傳 ODT / PDF / HTML 檔案</h2>
+            <h2>上傳 ODT / PDF / HTML / ZIP 檔案</h2>
           </div>
           
           <div class="drop-zone" id="drop-zone">
@@ -53,11 +53,11 @@
               <div class="drop-zone-icon">
                 <i data-lucide="file-up"></i>
               </div>
-              <h3>將 .odt, .pdf 或 .html 檔案拖曳至此</h3>
+              <h3>將 .odt, .pdf, .html 或 .zip 檔案拖曳至此</h3>
               <p>或點擊此處瀏覽電腦檔案</p>
               <span class="file-limit">支援最大 50MB 檔案</span>
             </div>
-            <input type="file" id="file-input" accept=".odt,.pdf,.html,.htm" style="display: none;">
+            <input type="file" id="file-input" accept=".odt,.pdf,.html,.htm,.zip" style="display: none;">
           </div>
 
           <div class="selected-file-info" id="selected-file-info" style="display: none;">
@@ -133,7 +133,7 @@
                 <i data-lucide="refresh-cw" class="spin-slow"></i>
               </div>
               <h2>準備轉換您的文件</h2>
-              <p>在左側上傳 ODT、PDF 或 HTML 檔案，即可在此處即時預覽與編輯產出的 Markdown 內容</p>
+              <p>在左側上傳 ODT、PDF、HTML 檔案或 ZIP 網頁包，即可在此處即時預覽與編輯產出的 Markdown 內容</p>
             </div>
 
             <!-- Output Info Panel (Stats) -->

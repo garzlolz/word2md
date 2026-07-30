@@ -107,13 +107,14 @@ dropZone.addEventListener('drop', (e) => {
 function handleFileSelect(file) {
   if (!file) return;
   
-  // 檢查是否為 .odt, .pdf, .html 或 .htm 檔
+  // 檢查是否為 .odt, .pdf, .html, .htm 或 .zip 檔
   const fileNameLower = file.name.toLowerCase();
   const isOdt = fileNameLower.endsWith('.odt');
   const isPdf = fileNameLower.endsWith('.pdf');
   const isHtml = fileNameLower.endsWith('.html') || fileNameLower.endsWith('.htm');
-  if (!isOdt && !isPdf && !isHtml) {
-    showToast('請上傳 .odt, .pdf 或 .html 格式的檔案', true);
+  const isZip = fileNameLower.endsWith('.zip');
+  if (!isOdt && !isPdf && !isHtml && !isZip) {
+    showToast('請上傳 .odt, .pdf, .html 或 .zip 格式的檔案', true);
     return;
   }
   

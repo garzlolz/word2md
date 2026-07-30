@@ -41,6 +41,7 @@
 | **ODT** | `.odt` | Headings (`#`-`######`), bold (`**`), italic (`*`), strikethrough (`~~`), underline (`<u>`), GFM tables, nested lists, image zip extraction |
 | **PDF** | `.pdf` | Font hierarchy detection, heading levels, structured text paragraphs |
 | **HTML** | `.html`, `.htm` | GFM tables, lists, Base64 image extraction & decoding, `<style>` / `<script>` filtering |
+| **ZIP Package** | `.zip` | Full web page archives (containing `.html` and `_files` image resource directories), automatic HTML parsing & relative image extraction |
 
 ---
 

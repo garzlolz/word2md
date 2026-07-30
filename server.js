@@ -265,7 +265,92 @@ function convertChildren(node, styles, imageMap, listState) {
   return result;
 }
 
-// 核心轉換 API (支援 ODT 與 PDF)
+// 統一 HTML 轉 Markdown 核心邏輯 (支援 Base64 與 Zip 圖片提取)
+function convertHtmlContent(htmlContent, runOutputDir, zipInstance = null) {
+  const cleanHtml = htmlContent
+    .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+    .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '')
+    .replace(/<noscript\b[^<]*(?:(?!<\/noscript>)<[^<]*)*<\/noscript>/gi, '');
+
+  const turndownService = new TurndownService({
+    headingStyle: 'atx',
+    codeBlockStyle: 'fenced'
+  });
+  turndownService.use(gfm);
+
+  const extractedImages = [];
+  let imgCounter = 0;
+
+  turndownService.addRule('extractHtmlImages', {
+    filter: 'img',
+    replacement: function (content, node) {
+      const src = node.getAttribute('src') || '';
+      const alt = node.getAttribute('alt') || 'image';
+
+      if (!src) return '';
+
+      // 1. 處理 Base64 編碼圖片
+      if (src.startsWith('data:image/')) {
+        const match = src.match(/^data:image\/([a-zA-Z0-9]+);base64,(.+)$/);
+        if (match) {
+          const imgExt = match[1] === 'jpeg' ? 'jpg' : match[1];
+          const base64Data = match[2];
+          const imgBuffer = Buffer.from(base64Data, 'base64');
+          imgCounter++;
+          const imgFileName = `image_${imgCounter}.${imgExt}`;
+          const picturesDir = path.join(runOutputDir, 'Pictures');
+          if (!fs.existsSync(picturesDir)) {
+            fs.mkdirSync(picturesDir, { recursive: true });
+          }
+          const destPath = path.join(picturesDir, imgFileName);
+          fs.writeFileSync(destPath, imgBuffer);
+          extractedImages.push(imgFileName);
+
+          return `![${alt}](Pictures/${imgFileName})`;
+        }
+      }
+
+      // 2. 若有 ZIP 壓縮檔實例，尋找 zip 內相對應的圖片檔案條目 (包含 _files 資料夾)
+      if (zipInstance && !src.startsWith('http://') && !src.startsWith('https://')) {
+        const decodedSrc = decodeURIComponent(src).replace(/\\/g, '/');
+        const targetFileName = path.basename(decodedSrc);
+        const entries = zipInstance.getEntries();
+
+        let matchedEntry = entries.find(e => !e.isDirectory && (e.entryName.endsWith(decodedSrc) || e.entryName === decodedSrc));
+        if (!matchedEntry) {
+          matchedEntry = entries.find(e => !e.isDirectory && path.basename(e.entryName) === targetFileName);
+        }
+
+        if (matchedEntry) {
+          const picturesDir = path.join(runOutputDir, 'Pictures');
+          if (!fs.existsSync(picturesDir)) {
+            fs.mkdirSync(picturesDir, { recursive: true });
+          }
+          const imgFileName = path.basename(matchedEntry.entryName);
+          const destPath = path.join(picturesDir, imgFileName);
+          fs.writeFileSync(destPath, matchedEntry.getData());
+          extractedImages.push(imgFileName);
+          return `![${alt}](Pictures/${imgFileName})`;
+        }
+      }
+
+      // 3. 一般非遠端圖片路徑
+      if (!src.startsWith('http://') && !src.startsWith('https://')) {
+        const fileName = path.basename(src);
+        return `![${alt}](Pictures/${fileName})`;
+      }
+
+      return `![${alt}](${src})`;
+    }
+  });
+
+  let markdown = turndownService.turndown(cleanHtml);
+  markdown = markdown.replace(/\n{3,}/g, '\n\n').trim();
+
+  return { markdown, extractedImages };
+}
+
+// 核心轉換 API (支援 ODT, PDF, HTML 及 ZIP 網頁包)
 app.post('/api/convert', upload.single('file'), async (req, res) => {
   try {
     if (!req.file) {
@@ -286,7 +371,7 @@ app.post('/api/convert', upload.single('file'), async (req, res) => {
     fs.mkdirSync(runOutputDir, { recursive: true });
 
     let markdown = '';
-    const extractedImages = [];
+    let extractedImages = [];
 
     if (isPdf) {
       try {
@@ -297,65 +382,14 @@ app.post('/api/convert', upload.single('file'), async (req, res) => {
     } else if (isHtml) {
       try {
         const htmlContent = fileBuffer.toString('utf8');
-        // 預處理：清理 script, style, noscript 等標籤
-        const cleanHtml = htmlContent
-          .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
-          .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '')
-          .replace(/<noscript\b[^<]*(?:(?!<\/noscript>)<[^<]*)*<\/noscript>/gi, '');
-
-        const turndownService = new TurndownService({
-          headingStyle: 'atx',
-          codeBlockStyle: 'fenced'
-        });
-        turndownService.use(gfm);
-
-        let imgCounter = 0;
-        turndownService.addRule('extractHtmlImages', {
-          filter: 'img',
-          replacement: function (content, node) {
-            const src = node.getAttribute('src') || '';
-            const alt = node.getAttribute('alt') || 'image';
-
-            if (!src) return '';
-
-            // 處理 Base64 編碼圖片
-            if (src.startsWith('data:image/')) {
-              const match = src.match(/^data:image\/([a-zA-Z0-9]+);base64,(.+)$/);
-              if (match) {
-                const imgExt = match[1] === 'jpeg' ? 'jpg' : match[1];
-                const base64Data = match[2];
-                const imgBuffer = Buffer.from(base64Data, 'base64');
-                imgCounter++;
-                const imgFileName = `image_${imgCounter}.${imgExt}`;
-                const picturesDir = path.join(runOutputDir, 'Pictures');
-                if (!fs.existsSync(picturesDir)) {
-                  fs.mkdirSync(picturesDir, { recursive: true });
-                }
-                const destPath = path.join(picturesDir, imgFileName);
-                fs.writeFileSync(destPath, imgBuffer);
-                extractedImages.push(imgFileName);
-
-                return `![${alt}](Pictures/${imgFileName})`;
-              }
-            }
-
-            // 處理一般非遠端圖片路徑
-            if (!src.startsWith('http://') && !src.startsWith('https://')) {
-              const fileName = path.basename(src);
-              return `![${alt}](Pictures/${fileName})`;
-            }
-
-            return `![${alt}](${src})`;
-          }
-        });
-
-        markdown = turndownService.turndown(cleanHtml);
-        markdown = markdown.replace(/\n{3,}/g, '\n\n').trim();
+        const converted = convertHtmlContent(htmlContent, runOutputDir);
+        markdown = converted.markdown;
+        extractedImages = converted.extractedImages;
       } catch (e) {
         return res.status(400).json({ error: '解析 HTML 檔案失敗：' + e.message });
       }
     } else {
-      // 用 adm-zip 解壓 ODT
+      // 處理 ZIP / ODT 檔案
       let zip;
       try {
         zip = new AdmZip(fileBuffer);
@@ -364,41 +398,46 @@ app.post('/api/convert', upload.single('file'), async (req, res) => {
       }
 
       const contentXmlEntry = zip.getEntry('content.xml');
-      if (!contentXmlEntry) {
-        return res.status(400).json({ error: '無效的 ODT 格式：缺少 content.xml' });
-      }
 
-      const contentXmlText = contentXmlEntry.getData().toString('utf8');
+      if (contentXmlEntry) {
+        // --- 1. ODT 解析流程 ---
+        const contentXmlText = contentXmlEntry.getData().toString('utf8');
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(contentXmlText, 'text/xml');
+        const styles = parseStyles(doc);
 
-      // 解析 XML
-      const parser = new DOMParser();
-      const doc = parser.parseFromString(contentXmlText, 'text/xml');
+        const imageMap = {};
+        markdown = convertChildren(doc.getElementsByTagName('office:body')[0], styles, imageMap);
+        markdown = markdown.replace(/\n{3,}/g, '\n\n').trim();
 
-      // 解析樣式
-      const styles = parseStyles(doc);
+        const imageKeys = Object.keys(imageMap);
+        if (imageKeys.length > 0) {
+          const picturesDir = path.join(runOutputDir, 'Pictures');
+          fs.mkdirSync(picturesDir, { recursive: true });
 
-      // 解析內容並收集圖片
-      const imageMap = {};
-      markdown = convertChildren(doc.getElementsByTagName('office:body')[0], styles, imageMap);
-
-      // 清理多餘換行
-      markdown = markdown.replace(/\n{3,}/g, '\n\n').trim();
-
-      // 提取並儲存圖片 (僅 ODT)
-      const imageKeys = Object.keys(imageMap);
-      if (imageKeys.length > 0) {
-        const picturesDir = path.join(runOutputDir, 'Pictures');
-        fs.mkdirSync(picturesDir, { recursive: true });
-
-        for (const imagePath of imageKeys) {
-          const zipEntry = zip.getEntry(imagePath);
-          if (zipEntry) {
-            const imageFileName = path.basename(imagePath);
-            const destPath = path.join(picturesDir, imageFileName);
-            fs.writeFileSync(destPath, zipEntry.getData());
-            extractedImages.push(imageFileName);
+          for (const imagePath of imageKeys) {
+            const zipEntry = zip.getEntry(imagePath);
+            if (zipEntry) {
+              const imageFileName = path.basename(imagePath);
+              const destPath = path.join(picturesDir, imageFileName);
+              fs.writeFileSync(destPath, zipEntry.getData());
+              extractedImages.push(imageFileName);
+            }
           }
         }
+      } else {
+        // --- 2. ZIP 內含網頁檔 (.html / .htm) 解析流程 ---
+        const entries = zip.getEntries();
+        const htmlEntry = entries.find(e => !e.isDirectory && (e.entryName.toLowerCase().endsWith('.html') || e.entryName.toLowerCase().endsWith('.htm')));
+
+        if (!htmlEntry) {
+          return res.status(400).json({ error: '無效的檔案格式：ZIP 檔案內找不到 .html 網頁檔或 content.xml (ODT)' });
+        }
+
+        const htmlContent = htmlEntry.getData().toString('utf8');
+        const converted = convertHtmlContent(htmlContent, runOutputDir, zip);
+        markdown = converted.markdown;
+        extractedImages = converted.extractedImages;
       }
     }
 
