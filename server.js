@@ -284,22 +284,10 @@ function convertHtmlContent(htmlContent, runOutputDir, zipInstance = null) {
     .replace(/<div[^>]*class="[^"]*notion-topbar[^"]*"[^>]*>[\s\S]*?<\/div>/gi, '')
     .replace(/<div[^>]*id="skip-to-content"[^>]*>[\s\S]*?<\/div>/gi, '');
 
-  // 4. 嘗試提取主內容區塊 (.notion-page-scroller, .notion-frame, main, article)
-  try {
-    const parser = new DOMParser();
-    const doc = parser.parseFromString(cleanHtml, 'text/html');
-
-    const scrollerNode = doc.getElementsByClassName ? doc.getElementsByClassName('notion-page-scroller')[0] : null;
-    const frameNode = doc.getElementsByClassName ? doc.getElementsByClassName('notion-frame')[0] : null;
-    const mainNode = doc.getElementsByTagName ? doc.getElementsByTagName('main')[0] : null;
-    const articleNode = doc.getElementsByTagName ? doc.getElementsByTagName('article')[0] : null;
-
-    const targetNode = scrollerNode || frameNode || mainNode || articleNode;
-    if (targetNode && targetNode.toString) {
-      cleanHtml = targetNode.toString();
-    }
-  } catch (e) {
-    // 若 DOM 解析出錯則順暢退回正則清理後的 HTML
+  // 4. 安全提取 Notion / 網頁文章主內容區塊 (.notion-page-scroller / .notion-frame / article)
+  const scrollerMatch = cleanHtml.match(/<div[^>]*class="[^"]*(?:notion-page-scroller|notion-frame)[^"]*"[^>]*>[\s\S]*$/i);
+  if (scrollerMatch) {
+    cleanHtml = scrollerMatch[0];
   }
 
   const turndownService = new TurndownService({
