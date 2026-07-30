@@ -425,78 +425,54 @@ function convertHtmlContent(htmlContent, runOutputDir, zipInstance = null) {
     return match;
   });
 
-  // 6. 版面與屬性欄位結構化美化
-  markdown = formatPropertiesSection(markdown);
+  // 6. 忠實還原原始版面結構，僅清理外圍頁首頁尾導覽雜訊
+  markdown = cleanNavigationNoise(markdown);
   markdown = markdown.replace(/\n{3,}/g, '\n\n').trim();
 
   return { markdown, extractedImages };
 }
 
-// 重構散亂屬性區塊為美觀之 Markdown 表格
-function formatPropertiesSection(markdownText) {
-  const propertyKeys = [
-    'Assign To', 'ID', 'Num', 'Sprint', '年份', '中心', '類型',
-    'Owner', 'QA', '卡片點數', '狀態', 'Release Date', 'Release',
-    'Created', 'Hotfix Date', 'Last edited by'
-  ];
-
-  let lines = markdownText
-    .split('\n')
-    .map(l => l.trim())
-    .filter(l => l !== '' && l !== '[' && l !== ']' && l !== 'F' && l !== 'K' && l !== 'R' && l !== '新');
-
+// 忠實保留原始版面結構，僅清理外圍頁首頁尾導覽雜訊
+function cleanNavigationNoise(markdownText) {
+  let lines = markdownText.split('\n');
   let resultLines = [];
-  let inProperties = false;
-  let propMap = [];
+  let started = false;
 
   for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
+    const trimmed = lines[i].trim();
 
-    // 徹底剔除頁首頁尾與側邊欄離線雜訊
-    if (line === '99+' || line === '跳至內容' || line === 'TE PBI' || line.includes('網訊電通股份有限公司') || line.includes('| Notion') || line.includes('已於') || line.includes('編輯') || line === '首頁' || line === '99+收件匣' || line === '共用' || line === '說明' || line === '媒體櫃' || line === 'P1 Sprint schedule' || line === 'IVR Asterisk 開發文件' || line.includes('NLP與B/C端對接文件') || line === '2024 PBI') {
-      continue;
-    }
-
-    if (propertyKeys.includes(line)) {
-      inProperties = true;
-      let values = [];
-      let j = i + 1;
-      while (j < lines.length && !propertyKeys.includes(lines[j]) && !lines[j].startsWith('#') && lines[j] !== '另外 31 個屬性' && lines[j] !== '留言') {
-        values.push(lines[j]);
-        j++;
-      }
-      propMap.push({ key: line, value: values.join(' ') || '空' });
-      i = j - 1;
-    } else {
-      if (inProperties && (line.startsWith('#') || line === '需求目的' || line.startsWith('##'))) {
-        if (propMap.length > 0) {
-          resultLines.push('| 屬性名稱 | 屬性內容 |');
-          resultLines.push('| :--- | :--- |');
-          propMap.forEach(p => {
-            resultLines.push(`| **${p.key}** | ${p.value} |`);
-          });
-          resultLines.push('');
-          propMap = [];
+    // 在找到真正的文章標題或主內容之前，過濾頁首與導覽區塊雜項
+    if (!started) {
+      if (trimmed.startsWith('#') || trimmed.startsWith('##') || trimmed === 'Assign To' || trimmed.includes('需求目的')) {
+        started = true;
+      } else {
+        if (
+          trimmed === '跳至內容' ||
+          trimmed === '網訊電通股份有限公司' ||
+          trimmed === '訪客' ||
+          trimmed === '首頁' ||
+          trimmed === '99+收件匣' ||
+          trimmed === '共用' ||
+          trimmed === 'TE PBI' ||
+          trimmed === 'P1 Sprint schedule' ||
+          trimmed === 'IVR Asterisk 開發文件' ||
+          trimmed.includes('NLP與B/C端對接文件') ||
+          trimmed === '2024 PBI' ||
+          trimmed === '媒體櫃' ||
+          trimmed === '說明' ||
+          trimmed === '新' ||
+          trimmed === '99+' ||
+          trimmed.includes('| Notion')
+        ) {
+          continue;
         }
-        inProperties = false;
-      }
-
-      if (!inProperties && line !== '另外 31 個屬性' && line !== '留言' && line !== 'F') {
-        resultLines.push(line);
       }
     }
+
+    resultLines.push(lines[i]);
   }
 
-  if (propMap.length > 0) {
-    resultLines.push('| 屬性名稱 | 屬性內容 |');
-    resultLines.push('| :--- | :--- |');
-    propMap.forEach(p => {
-      resultLines.push(`| **${p.key}** | ${p.value} |`);
-    });
-    propMap = [];
-  }
-
-  return resultLines.join('\n\n');
+  return resultLines.join('\n');
 }
 
 // 核心轉換 API (支援 ODT, PDF, HTML 及 ZIP 網頁包)
