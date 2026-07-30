@@ -19,6 +19,8 @@
     "adm-zip": "^0.6.0",
     "express": "^5.2.1",
     "multer": "^2.2.0",
-    "pdf2md": "^1.0.2"
+    "pdf2md": "^1.0.2",
+    "turndown": "^7.2.4",
+    "turndown-plugin-gfm": "^1.0.2"
   }
 }

@@ -3,6 +3,8 @@ const multer = require('multer');
 const AdmZip = require('adm-zip');
 const { DOMParser } = require('@xmldom/xmldom');
 const pdf2md = require('@opendocsg/pdf2md');
+const TurndownService = require('turndown');
+const { gfm } = require('turndown-plugin-gfm');
 const fs = require('fs');
 const path = require('path');
 const { exec } = require('child_process');
@@ -274,7 +276,9 @@ app.post('/api/convert', upload.single('file'), async (req, res) => {
     const originalName = Buffer.from(req.file.originalname, 'latin1').toString('utf8');
     const baseName = path.parse(originalName).name;
     const fileBuffer = req.file.buffer;
-    const isPdf = originalName.toLowerCase().endsWith('.pdf');
+    const ext = path.extname(originalName).toLowerCase();
+    const isPdf = ext === '.pdf';
+    const isHtml = ext === '.html' || ext === '.htm';
 
     // 建立輸出目錄：以當日日期+時間戳命名
     const timestampFolder = getTimestampFolder();
@@ -289,6 +293,66 @@ app.post('/api/convert', upload.single('file'), async (req, res) => {
         markdown = await pdf2md(fileBuffer);
       } catch (e) {
         return res.status(400).json({ error: '解析 PDF 檔案失敗：' + e.message });
+      }
+    } else if (isHtml) {
+      try {
+        const htmlContent = fileBuffer.toString('utf8');
+        // 預處理：清理 script, style, noscript 等標籤
+        const cleanHtml = htmlContent
+          .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+          .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '')
+          .replace(/<noscript\b[^<]*(?:(?!<\/noscript>)<[^<]*)*<\/noscript>/gi, '');
+
+        const turndownService = new TurndownService({
+          headingStyle: 'atx',
+          codeBlockStyle: 'fenced'
+        });
+        turndownService.use(gfm);
+
+        let imgCounter = 0;
+        turndownService.addRule('extractHtmlImages', {
+          filter: 'img',
+          replacement: function (content, node) {
+            const src = node.getAttribute('src') || '';
+            const alt = node.getAttribute('alt') || 'image';
+
+            if (!src) return '';
+
+            // 處理 Base64 編碼圖片
+            if (src.startsWith('data:image/')) {
+              const match = src.match(/^data:image\/([a-zA-Z0-9]+);base64,(.+)$/);
+              if (match) {
+                const imgExt = match[1] === 'jpeg' ? 'jpg' : match[1];
+                const base64Data = match[2];
+                const imgBuffer = Buffer.from(base64Data, 'base64');
+                imgCounter++;
+                const imgFileName = `image_${imgCounter}.${imgExt}`;
+                const picturesDir = path.join(runOutputDir, 'Pictures');
+                if (!fs.existsSync(picturesDir)) {
+                  fs.mkdirSync(picturesDir, { recursive: true });
+                }
+                const destPath = path.join(picturesDir, imgFileName);
+                fs.writeFileSync(destPath, imgBuffer);
+                extractedImages.push(imgFileName);
+
+                return `![${alt}](Pictures/${imgFileName})`;
+              }
+            }
+
+            // 處理一般非遠端圖片路徑
+            if (!src.startsWith('http://') && !src.startsWith('https://')) {
+              const fileName = path.basename(src);
+              return `![${alt}](Pictures/${fileName})`;
+            }
+
+            return `![${alt}](${src})`;
+          }
+        });
+
+        markdown = turndownService.turndown(cleanHtml);
+        markdown = markdown.replace(/\n{3,}/g, '\n\n').trim();
+      } catch (e) {
+        return res.status(400).json({ error: '解析 HTML 檔案失敗：' + e.message });
       }
     } else {
       // 用 adm-zip 解壓 ODT
