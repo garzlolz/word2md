@@ -1,4 +1,4 @@
-# word2md 📄➡️✍️
+# word2md
 
 [![License: ISC](https://img.shields.io/badge/License-ISC-blue.svg)](https://opensource.org/licenses/ISC)
 [![Node.js Version](https://img.shields.io/badge/node-%3E%3D18.0.0-brightgreen.svg)](https://nodejs.org/)
@@ -8,33 +8,33 @@
 
 ---
 
-## ✨ Features
+## Features
 
-- **🎨 Modern Web UI**:
+- **Modern Web UI**:
   - Premium dark theme featuring sleek glassmorphism, HSL-tailored color schemes, vibrant gradients, and smooth micro-animations.
   - Interactive **Drag & Drop** file uploader with glowing hover effects.
   - **Live Rendered Preview & Raw Code View**: Split-pane interface allowing real-time inspection and instant copy-to-clipboard functionality.
   - **One-Click Folder Opener**: Open the output directory directly in your operating system's file manager with a single click.
 
-- **📄 Multi-Format Processing**:
+- **Multi-Format Processing**:
   - **ODT Converter**: Parses XML structure, inline styles (bold, italic, strikethrough, underline), nested lists, GFM tables, and extracts embedded document images.
   - **PDF Parser**: Automatically detects font scaling and spatial positioning to reconstruct headings and paragraph hierarchy.
   - **HTML Engine**: Utilizes Turndown with GFM extensions to convert web pages, cleans unwanted `<script>` and `<style>` blocks, and decodes Base64 embedded images.
 
-- **📦 Automated Image Extraction**:
+- **Automated Image Extraction**:
   - Automatically extracts all embedded images and Base64 Data URLs into an isolated `Pictures/` subdirectory within the output folder.
   - Fixes all Markdown image references automatically to normalized relative paths (e.g., `![alt](Pictures/image_1.png)`).
 
-- **⏱️ Timestamp Archiving & History Tracking**:
+- **Timestamp Archiving & History Tracking**:
   - Organizes every conversion run into an isolated timestamped folder (`output/YYYY-MM-DD_HHmmss/`).
   - Keeps a history log allowing instant reloading of past conversions and output folders.
 
-- **💻 Dual Operating Modes**:
+- **Dual Operating Modes**:
   - Supports both interactive **Web UI** and lightweight **CLI script** execution.
 
 ---
 
-## 📊 Supported Formats Overview
+## Supported Formats Overview
 
 | Format | File Extensions | Features & Capabilities |
 | :--- | :--- | :--- |
@@ -44,14 +44,14 @@
 
 ---
 
-## 🛠️ Tech Stack
+## Tech Stack
 
 - **Backend**: Node.js, Express 5, Multer, Adm-Zip, `@xmldom/xmldom`, `@opendocsg/pdf2md`, Turndown, `turndown-plugin-gfm`
 - **Frontend**: Vanilla HTML5, Vanilla CSS3 (HSL Design System), ES6+ JavaScript, Lucide Icons, Google Fonts (Outfit & Inter)
 
 ---
 
-## 📁 Repository Structure
+## Repository Structure
 
 ```text
 word2md/
@@ -69,7 +69,7 @@ word2md/
 
 ---
 
-## 🚀 Quick Start
+## Quick Start
 
 ### 1. Prerequisites
 
@@ -104,7 +104,7 @@ Drag and drop your `.odt`, `.pdf`, or `.html` file onto the dropzone to start co
 
 ---
 
-## 💻 CLI Usage
+## CLI Usage
 
 If you prefer converting files via command line without running the Web UI:
 
@@ -118,7 +118,7 @@ node run-convert.js "path/to/your/document.odt"
 
 ---
 
-## 📡 API Endpoints
+## API Endpoints
 
 ### `POST /api/convert`
 Accepts a single uploaded file and returns the generated Markdown string and output directory info.
@@ -147,6 +147,6 @@ Returns the recent conversion history items.
 
 ---
 
-## 📄 License
+## License
 
 This project is open source and available under the [ISC License](LICENSE).
