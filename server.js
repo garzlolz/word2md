@@ -284,10 +284,13 @@ function convertHtmlContent(htmlContent, runOutputDir, zipInstance = null) {
     .replace(/<div[^>]*class="[^"]*notion-topbar[^"]*"[^>]*>[\s\S]*?<\/div>/gi, '')
     .replace(/<div[^>]*id="skip-to-content"[^>]*>[\s\S]*?<\/div>/gi, '');
 
-  // 4. 安全提取 Notion / 網頁文章主內容區塊 (.notion-page-scroller / .notion-frame / article)
-  const scrollerMatch = cleanHtml.match(/<div[^>]*class="[^"]*(?:notion-page-scroller|notion-frame)[^"]*"[^>]*>[\s\S]*$/i);
-  if (scrollerMatch) {
-    cleanHtml = scrollerMatch[0];
+  // 4. 嘗試精準尋找第一個 notion-page-content 區塊 (若存在)
+  const pageContentIdx = cleanHtml.indexOf('notion-page-content');
+  if (pageContentIdx !== -1) {
+    const startIdx = cleanHtml.lastIndexOf('<div', pageContentIdx);
+    if (startIdx !== -1 && startIdx > 0) {
+      cleanHtml = cleanHtml.substring(startIdx);
+    }
   }
 
   const turndownService = new TurndownService({
