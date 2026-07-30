@@ -1,7 +1,7 @@
-# ODT to Markdown Converter 📄➡️✍️
+# word2md - 多格式轉 Markdown 轉換器 📄➡️✍️
 
-這是一個**方便輕量、具備現代化 UI** 的 ODT (OpenDocument Text) 轉 Markdown 轉換工具。
-它能精準解析 ODT 文件，保留既有的排版格式，提取嵌入圖片，並自動歸檔至以「當日日期 + 時間戳」命名的資料夾中。
+這是一個**方便輕量、具備現代化 UI** 的多格式 (ODT / PDF / HTML) 轉 Markdown 轉換工具。
+它能精準解析 ODT、PDF 與 HTML 文件，保留既有的排版格式，提取嵌入圖片，並自動歸檔至以「當日日期 + 時間戳」命名的資料夾中。
 
 ---
 
@@ -13,7 +13,7 @@
   - **即時排版預覽** 與 **Markdown 原始碼** 雙分頁對照，支持複製內容。
   - **一鍵開啟輸出資料夾**：轉換完成後，可直接在網頁上點擊按鈕，系統會自動在檔案總管中開啟該產出目錄。
 - **📦 圖片自動提取與路徑對齊**：
-  - 自動提取 ODT 中嵌入的圖片並儲存在產出目錄下的 `Pictures/` 資料夾。
+  - 自動提取文件中嵌入的圖片（包含嵌入 Base64 圖片）並儲存在產出目錄下的 `Pictures/` 資料夾。
   - Markdown 檔案中的圖片連結統一轉換為對齊的相對路徑 `![alt](Pictures/imageX.png)`，保證排版不丟失。
 - **⏱️ 時間戳自動歸檔**：
   - 每次轉換都會建立如 `output/YYYY-MM-DD_HHmmss/` 的獨立資料夾。
@@ -26,7 +26,7 @@
 
 ## 🛠️ 技術棧
 
-- **後端 (Server-side)**：Node.js, Express, Multer, Adm-Zip, @xmldom/xmldom
+- **後端 (Server-side)**：Node.js, Express, Multer, Adm-Zip, @xmldom/xmldom, @opendocsg/pdf2md, Turndown, Turndown-plugin-gfm
 - **前端 (Client-side)**：Vanilla HTML, Vanilla CSS (HSL 色彩系統), Vanilla JS, Lucide Icons
 
 ---
@@ -34,7 +34,7 @@
 ## 📁 專案目錄結構
 
 ```text
-odt-converter/
+word2md/
 ├── public/                 # 前端靜態資源
 │   ├── index.html          # Modern UI 結構
 │   ├── style.css           # 玻璃擬態與暗色樣式表
