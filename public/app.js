@@ -2,6 +2,7 @@
 let currentMarkdown = '';
 let currentFolder = '';
 let currentFolderPath = '';
+let selectedFile = null;
 
 // DOM 元素
 const dropZone = document.getElementById('drop-zone');
@@ -118,6 +119,7 @@ function handleFileSelect(file) {
     return;
   }
   
+  selectedFile = file;
   displayFileName.textContent = file.name;
   displayFileSize.textContent = formatBytes(file.size);
   selectedFileInfo.style.display = 'flex';
@@ -138,12 +140,9 @@ function formatBytes(bytes, decimals = 2) {
 
 // 開始轉換
 btnConvert.addEventListener('click', async () => {
-  const file = fileInput.files[0] || (dropZone.files && dropZone.files[0]);
+  const uploadFile = selectedFile || (fileInput.files && fileInput.files[0]);
   
-  // 如果是拖曳產生的檔案
-  let uploadFile = file;
-  if (!uploadFile && fileInput.files.length === 0) {
-    // 嘗試從 input 屬性或 drop 緩存取得
+  if (!uploadFile) {
     showToast('請先選擇檔案', true);
     return;
   }
