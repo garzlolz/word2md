@@ -31,6 +31,7 @@ const contentXml = `<?xml version="1.0" encoding="UTF-8"?>
     xmlns:xlink="http://www.w3.org/1999/xlink" 
     xmlns:table="urn:oasis:names:tc:opendocument:xmlns:table:1.0"
     xmlns:draw="urn:oasis:names:tc:opendocument:xmlns:drawing:1.0"
+    xmlns:svg="http://www.w3.org/2000/svg"
     office:version="1.2">
   <office:automatic-styles>
     <style:style style:name="T1" style:family="text">

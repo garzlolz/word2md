@@ -2,6 +2,7 @@ const express = require('express');
 const multer = require('multer');
 const AdmZip = require('adm-zip');
 const { DOMParser } = require('@xmldom/xmldom');
+const pdf2md = require('@opendocsg/pdf2md');
 const fs = require('fs');
 const path = require('path');
 const { exec } = require('child_process');
@@ -262,7 +263,7 @@ function convertChildren(node, styles, imageMap, listState) {
   return result;
 }
 
-// 核心轉換 ODT API
+// 核心轉換 API (支援 ODT 與 PDF)
 app.post('/api/convert', upload.single('file'), async (req, res) => {
   try {
     if (!req.file) {
@@ -273,56 +274,66 @@ app.post('/api/convert', upload.single('file'), async (req, res) => {
     const originalName = Buffer.from(req.file.originalname, 'latin1').toString('utf8');
     const baseName = path.parse(originalName).name;
     const fileBuffer = req.file.buffer;
-
-    // 用 adm-zip 解壓
-    let zip;
-    try {
-      zip = new AdmZip(fileBuffer);
-    } catch (e) {
-      return res.status(400).json({ error: 'Invalid zip/odt file' });
-    }
-
-    const contentXmlEntry = zip.getEntry('content.xml');
-    if (!contentXmlEntry) {
-      return res.status(400).json({ error: 'Invalid ODT format: content.xml missing' });
-    }
-
-    const contentXmlText = contentXmlEntry.getData().toString('utf8');
-
-    // 解析 XML
-    const parser = new DOMParser();
-    const doc = parser.parseFromString(contentXmlText, 'text/xml');
-
-    // 解析樣式
-    const styles = parseStyles(doc);
-
-    // 解析內容並收集圖片
-    const imageMap = {};
-    let markdown = convertChildren(doc.getElementsByTagName('office:body')[0], styles, imageMap);
-
-    // 清理多餘換行
-    markdown = markdown.replace(/\n{3,}/g, '\n\n').trim();
+    const isPdf = originalName.toLowerCase().endsWith('.pdf');
 
     // 建立輸出目錄：以當日日期+時間戳命名
     const timestampFolder = getTimestampFolder();
     const runOutputDir = path.join(OUTPUT_DIR, timestampFolder);
     fs.mkdirSync(runOutputDir, { recursive: true });
 
-    // 提取並儲存圖片
+    let markdown = '';
     const extractedImages = [];
-    const imageKeys = Object.keys(imageMap);
-    if (imageKeys.length > 0) {
-      const picturesDir = path.join(runOutputDir, 'Pictures');
-      fs.mkdirSync(picturesDir, { recursive: true });
 
-      for (const imagePath of imageKeys) {
-        // ODT 中的圖片通常存在於 Pictures/ 中
-        const zipEntry = zip.getEntry(imagePath);
-        if (zipEntry) {
-          const imageFileName = path.basename(imagePath);
-          const destPath = path.join(picturesDir, imageFileName);
-          fs.writeFileSync(destPath, zipEntry.getData());
-          extractedImages.push(imageFileName);
+    if (isPdf) {
+      try {
+        markdown = await pdf2md(fileBuffer);
+      } catch (e) {
+        return res.status(400).json({ error: '解析 PDF 檔案失敗：' + e.message });
+      }
+    } else {
+      // 用 adm-zip 解壓 ODT
+      let zip;
+      try {
+        zip = new AdmZip(fileBuffer);
+      } catch (e) {
+        return res.status(400).json({ error: '無效的 zip/odt 檔案' });
+      }
+
+      const contentXmlEntry = zip.getEntry('content.xml');
+      if (!contentXmlEntry) {
+        return res.status(400).json({ error: '無效的 ODT 格式：缺少 content.xml' });
+      }
+
+      const contentXmlText = contentXmlEntry.getData().toString('utf8');
+
+      // 解析 XML
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(contentXmlText, 'text/xml');
+
+      // 解析樣式
+      const styles = parseStyles(doc);
+
+      // 解析內容並收集圖片
+      const imageMap = {};
+      markdown = convertChildren(doc.getElementsByTagName('office:body')[0], styles, imageMap);
+
+      // 清理多餘換行
+      markdown = markdown.replace(/\n{3,}/g, '\n\n').trim();
+
+      // 提取並儲存圖片 (僅 ODT)
+      const imageKeys = Object.keys(imageMap);
+      if (imageKeys.length > 0) {
+        const picturesDir = path.join(runOutputDir, 'Pictures');
+        fs.mkdirSync(picturesDir, { recursive: true });
+
+        for (const imagePath of imageKeys) {
+          const zipEntry = zip.getEntry(imagePath);
+          if (zipEntry) {
+            const imageFileName = path.basename(imagePath);
+            const destPath = path.join(picturesDir, imageFileName);
+            fs.writeFileSync(destPath, zipEntry.getData());
+            extractedImages.push(imageFileName);
+          }
         }
       }
     }

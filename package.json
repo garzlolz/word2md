@@ -14,9 +14,11 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
+    "@opendocsg/pdf2md": "^0.2.7",
     "@xmldom/xmldom": "^0.9.10",
     "adm-zip": "^0.6.0",
     "express": "^5.2.1",
-    "multer": "^2.2.0"
+    "multer": "^2.2.0",
+    "pdf2md": "^1.0.2"
   }
 }

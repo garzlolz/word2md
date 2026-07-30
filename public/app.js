@@ -107,9 +107,11 @@ dropZone.addEventListener('drop', (e) => {
 function handleFileSelect(file) {
   if (!file) return;
   
-  // 檢查是否為 odt 檔
-  if (!file.name.endsWith('.odt')) {
-    showToast('請上傳 .odt 格式的檔案', true);
+  // 檢查是否為 .odt 或 .pdf 檔
+  const isOdt = file.name.toLowerCase().endsWith('.odt');
+  const isPdf = file.name.toLowerCase().endsWith('.pdf');
+  if (!isOdt && !isPdf) {
+    showToast('請上傳 .odt 或 .pdf 格式的檔案', true);
     return;
   }
   
