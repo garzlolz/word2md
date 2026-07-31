@@ -60,10 +60,17 @@ function getTimestampFolder() {
   return `${year}-${month}-${date}_${hours}${minutes}${seconds}`;
 }
 
+// 清除檔名中在 Windows/macOS/Linux 檔案系統皆不合法的字元
+function sanitizeFileName(name) {
+  return name.replace(/[\\/:*?"<>|]/g, '_').trim();
+}
+
 // 轉義 Markdown 特殊字元
 function escapeMarkdown(text) {
   // 避免過度轉義中文字元間的星號 * 或底線 _，以提供更清爽的中文排版讀寫體驗
   return text
+    // 移除私有區塊字元 (如 Word 目錄項目符號慣用的 Wingdings/Symbol 字型佔位符) 與物件取代字元，脫離原字型後沒有意義
+    .replace(/[\uE000-\uF8FF\uFFFC]/g, '')
     .replace(/\\/g, '\\\\')
     .replace(/\[/g, '\\[')
     .replace(/\]/g, '\\]');
@@ -78,19 +85,43 @@ function parseStyles(doc) {
     const name = node.getAttribute('style:name');
     const family = node.getAttribute('style:family');
     
-    if (family === 'text') {
+    // 段落樣式 (paragraph) 也可能直接帶有文字顏色 (例如未被 text:span 包裹的紅字)，需一併解析
+    // 即使沒有 style:text-properties (例如目錄項目樣式只帶 tab-stop 設定)，仍需記錄 parent 以利樣式繼承鏈查找 (如目錄大綱層級)
+    if (family === 'text' || family === 'paragraph') {
       const textProps = node.getElementsByTagName('style:text-properties')[0];
-      if (textProps) {
-        styles[name] = {
-          bold: textProps.getAttribute('fo:font-weight') === 'bold',
-          italic: textProps.getAttribute('fo:font-style') === 'italic',
-          underline: !!textProps.getAttribute('style:text-underline-style'),
-          strike: !!textProps.getAttribute('style:text-line-through-style'),
-        };
-      }
+      styles[name] = {
+        bold: textProps ? textProps.getAttribute('fo:font-weight') === 'bold' : false,
+        italic: textProps ? textProps.getAttribute('fo:font-style') === 'italic' : false,
+        underline: textProps ? !!textProps.getAttribute('style:text-underline-style') : false,
+        strike: textProps ? !!textProps.getAttribute('style:text-line-through-style') : false,
+        color: textProps ? textProps.getAttribute('fo:color') : null,
+        parent: node.getAttribute('style:parent-style-name') || null,
+      };
     }
   }
   return styles;
+}
+
+// 依樣式繼承鏈 (style:parent-style-name) 查找該樣式最終對應的目錄大綱層級
+function resolveTocLevel(styleName, styles, templateLevelByStyle) {
+  let name = styleName;
+  let depth = 0;
+  while (name && depth < 10) {
+    if (templateLevelByStyle[name]) return templateLevelByStyle[name];
+    name = styles[name] ? styles[name].parent : null;
+    depth++;
+  }
+  return 1;
+}
+
+// 套用段落本身樣式 (text:style-name) 所定義的文字顏色，涵蓋未被 text:span 包裹的直接文字
+function applyParagraphColor(node, styles, content) {
+  if (!content || !content.trim()) return content;
+  const style = styles[node.getAttribute('text:style-name')];
+  if (style && style.color && style.color.toUpperCase() !== '#000000') {
+    return `<span style="color:${style.color}">${content}</span>`;
+  }
+  return content;
 }
 
 // 檢查節點是否位於標題 (text:h) 內部
@@ -122,12 +153,12 @@ function convertElement(node, styles, imageMap, listState = { level: 0, ordered:
       case 'text:h': {
         const level = parseInt(node.getAttribute('text:outline-level') || '1', 10);
         const hashes = '#'.repeat(Math.min(Math.max(level, 1), 6));
-        const content = convertChildren(node, styles, imageMap, listState).trim();
+        const content = applyParagraphColor(node, styles, convertChildren(node, styles, imageMap, listState).trim());
         return `\n\n${hashes} ${content}\n\n`;
       }
 
       case 'text:p': {
-        const content = convertChildren(node, styles, imageMap, listState);
+        const content = applyParagraphColor(node, styles, convertChildren(node, styles, imageMap, listState));
         // 如果在列表中，段落不需要額外的雙換行
         if (listState.level > 0) {
           return content;
@@ -148,6 +179,7 @@ function convertElement(node, styles, imageMap, listState = { level: 0, ordered:
           if (style.italic) content = `*${content}*`;
           if (style.strike) content = `~~${content}~~`;
           if (style.underline) content = `<u>${content}</u>`;
+          if (style.color && style.color.toUpperCase() !== '#000000') content = `<span style="color:${style.color}">${content}</span>`;
         }
         return content;
       }
@@ -163,8 +195,44 @@ function convertElement(node, styles, imageMap, listState = { level: 0, ordered:
         return ' '.repeat(count);
       }
 
+      case 'text:tab': {
+        return ' ';
+      }
+
       case 'text:line-break': {
         return '  \n';
+      }
+
+      case 'text:table-of-content': {
+        // 目錄：依 text:table-of-content-source 定義的大綱層級樣式對照表，將每行轉為對應縮排的巢狀清單
+        const templateLevelByStyle = {};
+        const sourceNode = node.getElementsByTagName('text:table-of-content-source')[0];
+        if (sourceNode) {
+          const templates = sourceNode.getElementsByTagName('text:table-of-content-entry-template');
+          for (let i = 0; i < templates.length; i++) {
+            const templateStyleName = templates[i].getAttribute('text:style-name');
+            const level = parseInt(templates[i].getAttribute('text:outline-level') || '1', 10);
+            if (templateStyleName) templateLevelByStyle[templateStyleName] = level;
+          }
+        }
+
+        const indexBody = node.getElementsByTagName('text:index-body')[0];
+        if (!indexBody) return '';
+
+        const lines = [];
+        const bodyChildren = indexBody.childNodes;
+        for (let i = 0; i < bodyChildren.length; i++) {
+          const child = bodyChildren[i];
+          const childTag = child.tagName || child.nodeName;
+          if (childTag !== 'text:p' && childTag !== 'text:h') continue;
+
+          const level = resolveTocLevel(child.getAttribute('text:style-name'), styles, templateLevelByStyle);
+          const content = convertChildren(child, styles, imageMap, listState).trim();
+          if (!content) continue;
+          lines.push(`${'  '.repeat(level - 1)}- ${content}`);
+        }
+
+        return `\n\n${lines.join('\n')}\n\n`;
       }
 
       case 'text:list': {
@@ -494,9 +562,9 @@ app.post('/api/convert', upload.single('file'), async (req, res) => {
     const isPdf = ext === '.pdf';
     const isHtml = ext === '.html' || ext === '.htm';
 
-    // 建立輸出目錄：以當日日期+時間戳命名
-    const timestampFolder = getTimestampFolder();
-    const runOutputDir = path.join(OUTPUT_DIR, timestampFolder);
+    // 建立輸出目錄：時間戳_檔案名稱
+    const outputFolderName = `${getTimestampFolder()}_${sanitizeFileName(baseName)}`;
+    const runOutputDir = path.join(OUTPUT_DIR, outputFolderName);
     fs.mkdirSync(runOutputDir, { recursive: true });
 
     let markdown = '';
@@ -600,7 +668,7 @@ app.post('/api/convert', upload.single('file'), async (req, res) => {
     const historyItem = {
       id: Date.now().toString(),
       fileName: originalName,
-      folderName: timestampFolder,
+      folderName: outputFolderName,
       outputPath: runOutputDir,
       mdFile: mdFileName,
       timestamp: new Date().toLocaleString('zh-TW'),
@@ -614,7 +682,7 @@ app.post('/api/convert', upload.single('file'), async (req, res) => {
       markdown: markdown,
       outputPath: runOutputDir,
       mdFile: mdFileName,
-      folderName: timestampFolder,
+      folderName: outputFolderName,
       imageCount: extractedImages.length
     });
   } catch (error) {

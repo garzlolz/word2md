@@ -372,6 +372,9 @@ function renderMarkdown(md) {
   // 還原 <u> 和 </u> 標籤，因為後端會輸出 <u> 標籤來表示底線格式
   html = html.replace(/&lt;u&gt;/g, '<u>').replace(/&lt;\/u&gt;/g, '</u>');
 
+  // 還原 <span style="color:..."> 標籤，因為後端會輸出此標籤來表示文字顏色
+  html = html.replace(/&lt;span style="color:(#[0-9A-Fa-f]{3,6})"&gt;/g, '<span style="color:$1">').replace(/&lt;\/span&gt;/g, '</span>');
+
   // 解析表格
   const lines = html.split('\n');
   let inTable = false;
@@ -453,23 +456,27 @@ function renderMarkdown(md) {
   const finalLines = html.split('\n').map(line => {
     const trimmed = line.trim();
     if (!trimmed) return '';
-    
+
     // 如果是 HTML 標籤就不需要 wrap 成 <p>
     if (trimmed.startsWith('<h') || trimmed.startsWith('</h') || trimmed.startsWith('<table') || trimmed.startsWith('</table') || trimmed.startsWith('<tr') || trimmed.startsWith('</tr') || trimmed.startsWith('<td') || trimmed.startsWith('<th') || trimmed.startsWith('<thead') || trimmed.startsWith('<tbody') || trimmed.startsWith('<u>') || trimmed.startsWith('<img>')) {
       return line;
     }
-    
+
+    // 依原始行首縮排空白計算巢狀層級 (後端以每層 2 個空白產生縮排，例如目錄大綱層級)
+    const leadingSpaces = line.length - line.trimStart().length;
+    const indentPx = 20 + Math.floor(leadingSpaces / 2) * 20;
+
     // 無序清單
     if (trimmed.startsWith('- ')) {
       // 簡單的 list-item 轉換
       const listContent = trimmed.substring(2);
-      return `<li style="list-style-type: disc; margin-left: 20px;">${parseInlineElements(listContent)}</li>`;
+      return `<li style="list-style-type: disc; margin-left: ${indentPx}px;">${parseInlineElements(listContent)}</li>`;
     }
-    
+
     // 有序清單
     const numListMatch = trimmed.match(/^(\d+)\.\s+(.+)$/);
     if (numListMatch) {
-      return `<li style="list-style-type: decimal; margin-left: 20px;">${parseInlineElements(numListMatch[2])}</li>`;
+      return `<li style="list-style-type: decimal; margin-left: ${indentPx}px;">${parseInlineElements(numListMatch[2])}</li>`;
     }
 
     return `<p>${parseInlineElements(line)}</p>`;
