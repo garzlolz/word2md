@@ -77,9 +77,15 @@
 
         <!-- History Card -->
         <div class="glass-card history-card">
-          <div class="card-header">
-            <i data-lucide="history"></i>
-            <h2>轉換歷史記錄</h2>
+          <div class="card-header history-header">
+            <div class="header-title">
+              <i data-lucide="history"></i>
+              <h2>轉換歷史記錄</h2>
+            </div>
+            <button class="btn-clean-history" id="btn-clean-history" title="清理已遺失的歷史紀錄" style="display: none;">
+              <i data-lucide="trash-2"></i>
+              <span>清理失效</span>
+            </button>
           </div>
           <div class="history-list" id="history-list">
             <div class="empty-history">
@@ -111,9 +117,13 @@
                 <i data-lucide="copy"></i>
                 <span>複製內容</span>
               </button>
-              <button class="btn btn-success" id="btn-open-folder" disabled>
-                <i data-lucide="folder-open"></i>
-                <span>開啟輸出資料夾</span>
+              <button class="btn btn-primary" id="btn-download-zip" disabled>
+                <i data-lucide="download"></i>
+                <span>下載 ZIP</span>
+              </button>
+              <button class="btn btn-secondary" id="btn-download-md" disabled>
+                <i data-lucide="file-down"></i>
+                <span>下載 .md</span>
               </button>
             </div>
           </div>

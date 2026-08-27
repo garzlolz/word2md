@@ -691,59 +691,84 @@ app.post('/api/convert', upload.single('file'), async (req, res) => {
   }
 });
 
-// 開啟資料夾 API
-app.post('/api/open-folder', (req, res) => {
-  const { folderPath } = req.body;
-  console.log(`[Open Folder] 請求開啟路徑: ${folderPath}`);
-  
-  if (!folderPath) {
-    return res.status(400).json({ error: '未提供路徑' });
-  }
+// 取得歷史記錄 API (附帶實體檔案存在性檢查)
+app.get('/api/history', (req, res) => {
+  const history = getHistory().map(item => {
+    const isExists = item.outputPath ? fs.existsSync(item.outputPath) : false;
+    return {
+      ...item,
+      exists: isExists
+    };
+  });
+  res.json(history);
+});
 
-  // 標準化為操作系統原生路徑格式（在 Windows 上為反斜線）
-  const normalizedPath = path.resolve(folderPath);
-  console.log(`[Open Folder] 標準化原生路徑: ${normalizedPath}`);
+// 清理失效的歷史記錄 API
+app.post('/api/history/clean', (req, res) => {
+  const history = getHistory();
+  const validHistory = history.filter(item => item.outputPath && fs.existsSync(item.outputPath));
+  const removedCount = history.length - validHistory.length;
+  saveHistory(validHistory);
+  res.json({ success: true, removedCount, history: validHistory.map(item => ({ ...item, exists: true })) });
+});
 
-  if (!fs.existsSync(normalizedPath)) {
-    console.error(`[Open Folder] 資料夾不存在: ${normalizedPath}`);
-    return res.status(400).json({ error: `資料夾路徑不存在: ${normalizedPath}` });
+// 刪除單筆歷史記錄 API
+app.delete('/api/history/:id', (req, res) => {
+  const { id } = req.params;
+  const history = getHistory();
+  const updatedHistory = history.filter(item => String(item.id) !== String(id));
+  saveHistory(updatedHistory);
+  res.json({ success: true });
+});
+
+// 打包下載資料夾為 ZIP API
+app.get('/api/download/zip/:folderName', (req, res) => {
+  const folderName = path.basename(req.params.folderName);
+  const targetDir = path.join(OUTPUT_DIR, folderName);
+
+  if (!fs.existsSync(targetDir)) {
+    return res.status(404).json({ error: '找不到該產出資料夾，可能已被刪除' });
   }
 
   try {
-    const { spawn } = require('child_process');
-    if (process.platform === 'win32') {
-      // 使用 cmd.exe 的 start 指令來開啟資料夾，這是 Windows 下最穩定、最不容易出錯的 Shell 方式
-      // 這能完美避免 explorer.exe 直啟時的參數解析 Bug，並能在使用者互動 Session 下 100% 彈出檔案總管
-      const child = spawn('cmd.exe', ['/c', 'start', '', normalizedPath], {
-        detached: true,
-        stdio: 'ignore'
-      });
-      child.unref();
-    } else if (process.platform === 'darwin') {
-      const child = spawn('open', [normalizedPath], {
-        detached: true,
-        stdio: 'ignore'
-      });
-      child.unref();
-    } else {
-      const child = spawn('xdg-open', [normalizedPath], {
-        detached: true,
-        stdio: 'ignore'
-      });
-      child.unref();
-    }
-    
-    console.log(`[Open Folder] 已成功調用系統進程開啟資料夾`);
-    res.json({ success: true });
+    const zip = new AdmZip();
+    zip.addLocalFolder(targetDir);
+    const zipBuffer = zip.toBuffer();
+
+    const encodedFileName = encodeURIComponent(`${folderName}.zip`);
+    res.setHeader('Content-Type', 'application/zip');
+    res.setHeader('Content-Disposition', `attachment; filename="${encodedFileName}"; filename*=UTF-8''${encodedFileName}`);
+    res.send(zipBuffer);
   } catch (err) {
-    console.error(`[Open Folder] 啟動進程失敗:`, err);
-    res.status(500).json({ error: `無法開啟資料夾：${err.message}` });
+    console.error(`[Download ZIP] 打包失敗:`, err);
+    res.status(500).json({ error: `打包 ZIP 失敗：${err.message}` });
   }
 });
 
-// 取得歷史記錄 API
-app.get('/api/history', (req, res) => {
-  res.json(getHistory());
+// 下載單一 Markdown 檔 API
+app.get('/api/download/md/:folderName', (req, res) => {
+  const folderName = path.basename(req.params.folderName);
+  const targetDir = path.join(OUTPUT_DIR, folderName);
+
+  if (!fs.existsSync(targetDir)) {
+    return res.status(404).json({ error: '找不到該產出資料夾，可能已被刪除' });
+  }
+
+  try {
+    // 找出該目錄下的 .md 檔案
+    const files = fs.readdirSync(targetDir);
+    const mdFile = files.find(f => f.endsWith('.md'));
+
+    if (!mdFile) {
+      return res.status(404).json({ error: '資料夾內無 Markdown 檔案' });
+    }
+
+    const mdFilePath = path.join(targetDir, mdFile);
+    res.download(mdFilePath, mdFile);
+  } catch (err) {
+    console.error(`[Download MD] 下載失敗:`, err);
+    res.status(500).json({ error: `下載 Markdown 失敗：${err.message}` });
+  }
 });
 
 // 啟動伺服器

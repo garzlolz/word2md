@@ -12,7 +12,9 @@ const displayFileName = document.getElementById('display-file-name');
 const displayFileSize = document.getElementById('display-file-size');
 const btnConvert = document.getElementById('btn-convert');
 const btnCopy = document.getElementById('btn-copy');
-const btnOpenFolder = document.getElementById('btn-open-folder');
+const btnDownloadZip = document.getElementById('btn-download-zip');
+const btnDownloadMd = document.getElementById('btn-download-md');
+const btnCleanHistory = document.getElementById('btn-clean-history');
 const loader = document.getElementById('loader');
 const welcomeScreen = document.getElementById('welcome-screen');
 const outputInfoBar = document.getElementById('output-info-bar');
@@ -159,7 +161,8 @@ btnConvert.addEventListener('click', async () => {
   
   btnConvert.disabled = true;
   btnCopy.disabled = true;
-  btnOpenFolder.disabled = true;
+  btnDownloadZip.disabled = true;
+  btnDownloadMd.disabled = true;
   
   try {
     const response = await fetch('/api/convert', {
@@ -197,7 +200,8 @@ btnConvert.addEventListener('click', async () => {
       
       // 啟用功能按鈕
       btnCopy.disabled = false;
-      btnOpenFolder.disabled = false;
+      btnDownloadZip.disabled = false;
+      btnDownloadMd.disabled = false;
       
       showToast('轉換成功！已寫入時間戳資料夾');
       loadHistory(); // 重新整理歷史記錄
@@ -225,41 +229,51 @@ btnCopy.addEventListener('click', () => {
     });
 });
 
-// 開啟輸出資料夾 (兼具複製路徑後備方案)
-btnOpenFolder.addEventListener('click', () => {
-  if (!currentFolderPath) return;
-  
-  // 先嘗試複製絕對路徑到剪貼簿
-  navigator.clipboard.writeText(currentFolderPath)
-    .then(() => {
-      openFolder(currentFolderPath, true);
-    })
-    .catch(() => {
-      openFolder(currentFolderPath, false);
-    });
+// 下載 ZIP 壓縮包
+btnDownloadZip.addEventListener('click', () => {
+  if (!currentFolder) return;
+  downloadZip(currentFolder);
 });
 
-async function openFolder(folderPath, pathCopied = false) {
-  try {
-    const response = await fetch('/api/open-folder', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({ folderPath })
-    });
-    const result = await response.json();
-    if (result.success) {
-      const msg = pathCopied 
-        ? '已嘗試開啟資料夾（絕對路徑已複製到剪貼簿，可直接貼上）' 
-        : '已在檔案總管中開啟輸出資料夾';
-      showToast(msg);
-    } else {
-      showToast('無法開啟資料夾：' + result.error, true);
+// 下載 Markdown 檔案
+btnDownloadMd.addEventListener('click', () => {
+  if (!currentFolder) return;
+  downloadMd(currentFolder);
+});
+
+function downloadZip(folderName) {
+  const link = document.createElement('a');
+  link.href = `/api/download/zip/${encodeURIComponent(folderName)}`;
+  link.download = `${folderName}.zip`;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  showToast('開始下載 ZIP 壓縮包...');
+}
+
+function downloadMd(folderName) {
+  const link = document.createElement('a');
+  link.href = `/api/download/md/${encodeURIComponent(folderName)}`;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  showToast('開始下載 Markdown 檔案...');
+}
+
+// 綁定清理失效記錄按鈕
+if (btnCleanHistory) {
+  btnCleanHistory.addEventListener('click', async () => {
+    try {
+      const response = await fetch('/api/history/clean', { method: 'POST' });
+      const result = await response.json();
+      if (result.success) {
+        showToast(`已清理 ${result.removedCount} 筆失效歷史紀錄`);
+        loadHistory();
+      }
+    } catch (err) {
+      showToast('清理失敗：' + err.message, true);
     }
-  } catch (error) {
-    showToast('通訊錯誤：' + error.message, true);
-  }
+  });
 }
 
 // 載入歷史記錄
@@ -269,6 +283,7 @@ async function loadHistory() {
     const history = await response.json();
     
     if (history.length === 0) {
+      if (btnCleanHistory) btnCleanHistory.style.display = 'none';
       historyList.innerHTML = `
         <div class="empty-history">
           <i data-lucide="inbox"></i>
@@ -279,39 +294,80 @@ async function loadHistory() {
       return;
     }
     
-    historyList.innerHTML = history.map(item => `
-      <div class="history-item" data-folder="${item.folderName}" data-path="${item.outputPath}" data-file="${item.mdFile}">
-        <div class="history-item-details">
-          <span class="history-item-name" title="${item.fileName}">${item.fileName}</span>
-          <span class="history-item-time">${item.timestamp}</span>
+    // 檢查是否有失效的項目，決定是否顯示「清理失效」按鈕
+    const hasMissing = history.some(item => item.exists === false);
+    if (btnCleanHistory) {
+      btnCleanHistory.style.display = hasMissing ? 'inline-flex' : 'none';
+    }
+    
+    historyList.innerHTML = history.map(item => {
+      const isMissing = item.exists === false;
+      return `
+        <div class="history-item ${isMissing ? 'is-missing' : ''}" 
+             data-id="${item.id}"
+             data-folder="${item.folderName}" 
+             data-path="${item.outputPath || ''}" 
+             data-file="${item.mdFile || ''}" 
+             data-exists="${!isMissing}">
+          <div class="history-item-details">
+            <span class="history-item-name" title="${item.fileName}">${item.fileName}</span>
+            <div class="history-item-time-row">
+              <span class="history-item-time">${item.timestamp}</span>
+              ${isMissing ? '<span class="history-badge-missing">檔案已清理</span>' : ''}
+            </div>
+          </div>
+          <div class="history-item-actions">
+            ${!isMissing ? `
+              <button class="btn-icon-only btn-history-download" title="下載 ZIP 壓縮檔">
+                <i data-lucide="download"></i>
+              </button>
+            ` : ''}
+            <button class="btn-icon-only btn-history-delete" title="刪除此紀錄">
+              <i data-lucide="x"></i>
+            </button>
+          </div>
         </div>
-        <div class="history-item-actions">
-          <button class="btn-icon-only btn-history-open" title="開啟產出資料夾">
-            <i data-lucide="folder"></i>
-          </button>
-        </div>
-      </div>
-    `).join('');
+      `;
+    }).join('');
     
     lucide.createIcons();
     
     // 綁定歷史記錄點擊事件
     document.querySelectorAll('.history-item').forEach(el => {
+      const id = el.getAttribute('data-id');
+      const folderName = el.getAttribute('data-folder');
+      const mdFile = el.getAttribute('data-file');
+      const folderPath = el.getAttribute('data-path');
+      const exists = el.getAttribute('data-exists') === 'true';
+
       // 點擊整項載入預覽
       el.addEventListener('click', async (e) => {
-        // 如果是點擊了開啟資料夾按鈕，不觸發載入預覽
-        if (e.target.closest('.btn-history-open')) {
+        // 點擊了刪除此筆記錄
+        if (e.target.closest('.btn-history-delete')) {
           e.stopPropagation();
-          const folderPath = el.getAttribute('data-path');
-          navigator.clipboard.writeText(folderPath)
-            .then(() => openFolder(folderPath, true))
-            .catch(() => openFolder(folderPath, false));
+          try {
+            const res = await fetch(`/api/history/${id}`, { method: 'DELETE' });
+            if (res.ok) {
+              showToast('已刪除該筆歷史紀錄');
+              loadHistory();
+            }
+          } catch (err) {
+            showToast('刪除失敗：' + err.message, true);
+          }
           return;
         }
-        
-        const folderName = el.getAttribute('data-folder');
-        const mdFile = el.getAttribute('data-file');
-        const folderPath = el.getAttribute('data-path');
+
+        // 點擊了下載 ZIP 按鈕
+        if (e.target.closest('.btn-history-download')) {
+          e.stopPropagation();
+          downloadZip(folderName);
+          return;
+        }
+
+        if (!exists) {
+          showToast('該紀錄對應的實體檔案已不存在', true);
+          return;
+        }
         
         // 讀取該歷史紀錄的 markdown 檔案 (透過伺服器靜態資源載入)
         try {
@@ -343,7 +399,8 @@ async function loadHistory() {
             }
             
             btnCopy.disabled = false;
-            btnOpenFolder.disabled = false;
+            btnDownloadZip.disabled = false;
+            btnDownloadMd.disabled = false;
             
             showToast('已載入歷史轉換預覽');
           } else {

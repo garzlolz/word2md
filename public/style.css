@@ -418,6 +418,43 @@ body {
   height: 36px;
 }
 
+.history-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.history-header .header-title {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.btn-clean-history {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.25rem 0.6rem;
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.25);
+  color: #f87171;
+  font-size: 0.75rem;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: var(--transition-smooth);
+}
+
+.btn-clean-history i {
+  width: 13px;
+  height: 13px;
+}
+
+.btn-clean-history:hover {
+  background: rgba(239, 68, 68, 0.25);
+  border-color: rgba(239, 68, 68, 0.5);
+  color: #ffffff;
+}
+
 .history-item {
   display: flex;
   justify-content: space-between;
@@ -428,6 +465,7 @@ body {
   border-radius: var(--border-radius-md);
   cursor: pointer;
   transition: var(--transition-smooth);
+  position: relative;
 }
 
 .history-item:hover {
@@ -435,11 +473,23 @@ body {
   border-color: var(--primary-color);
 }
 
+.history-item.is-missing {
+  opacity: 0.55;
+  background: rgba(255, 255, 255, 0.01);
+  border-style: dashed;
+}
+
+.history-item.is-missing:hover {
+  opacity: 0.8;
+  border-color: rgba(239, 68, 68, 0.4);
+}
+
 .history-item-details {
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
   overflow: hidden;
+  flex: 1;
 }
 
 .history-item-name {
@@ -451,15 +501,30 @@ body {
   text-overflow: ellipsis;
 }
 
+.history-item-time-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
 .history-item-time {
   font-size: 0.7rem;
   color: var(--text-muted);
 }
 
+.history-badge-missing {
+  font-size: 0.65rem;
+  padding: 0.1rem 0.35rem;
+  border-radius: 3px;
+  background: rgba(239, 68, 68, 0.15);
+  color: #f87171;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
 .history-item-actions {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.4rem;
 }
 
 .btn-icon-only {
@@ -476,10 +541,21 @@ body {
   transition: var(--transition-smooth);
 }
 
-.btn-icon-only:hover {
+.btn-icon-only:hover:not(:disabled) {
   background: var(--primary-color);
   color: var(--text-white);
   border-color: var(--primary-color);
+}
+
+.btn-icon-only.btn-history-delete:hover:not(:disabled) {
+  background: #ef4444;
+  color: #ffffff;
+  border-color: #ef4444;
+}
+
+.btn-icon-only:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
 }
 
 /* Main Panel & Preview */
