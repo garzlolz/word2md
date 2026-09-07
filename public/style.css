@@ -822,8 +822,37 @@ body {
 .markdown-body img {
   max-width: 100%;
   border-radius: var(--border-radius-md);
-  margin: 1rem 0;
+  margin: 0.5rem 0;
   border: 1px solid var(--border-color);
+}
+
+/* 缺漏或破圖待補齊之預覽提示元件 */
+.img-missing-placeholder {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  padding: 0.45rem 0.8rem;
+  background: rgba(239, 68, 68, 0.08);
+  border: 1px dashed rgba(239, 68, 68, 0.4);
+  color: #fca5a5;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  margin: 0.35rem 0;
+  font-family: var(--font-body);
+}
+
+.img-missing-placeholder strong {
+  color: #ffffff;
+}
+
+.img-missing-placeholder code {
+  color: #fecaca;
+  background: rgba(0, 0, 0, 0.35);
+  padding: 0.1rem 0.4rem;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  font-family: monospace;
 }
 
 .markdown-body table {

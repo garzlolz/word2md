@@ -527,25 +527,25 @@ function convertHtmlContent(htmlContent, runOutputDir, zipInstance = null) {
           fs.writeFileSync(destPath, imgBuffer);
           extractedImages.push(imgFileName);
 
-          return `![${alt}](Pictures/${imgFileName})`;
+          return `![${alt || 'image'}](Pictures/${imgFileName})`;
         }
       }
 
+      // 2. 遠端圖片連結處理 (直接保留完整連結，相容 S3 / CDN 及無特定副檔名之圖檔網址)
+      if (src.startsWith('http://') || src.startsWith('https://')) {
+        return `![${alt || 'image'}](${src})`;
+      }
+
+      // 3. 本機相對路徑或 ZIP 壓縮檔內圖片
       const validImgExts = ['.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg', '.bmp', '.ico'];
+      const decodedSrc = decodeURIComponent(src).replace(/\\/g, '/');
+      const targetFileName = path.basename(decodedSrc.split('?')[0]);
+      const ext = path.extname(targetFileName).toLowerCase();
+      const finalExt = validImgExts.includes(ext) ? ext : '.png';
 
-      // 2. 若有 ZIP 壓縮檔實例，尋找 zip 內相對應的圖片檔案條目 (包含 _files 資料夾)
-      if (zipInstance && !src.startsWith('http://') && !src.startsWith('https://')) {
-        const decodedSrc = decodeURIComponent(src).replace(/\\/g, '/');
-        const targetFileName = path.basename(decodedSrc);
-        const ext = path.extname(targetFileName).toLowerCase();
-
-        // 若副檔名不是合法圖片格式，忽略此標籤 (防止 tag, txt 等非圖片檔導致破圖)
-        if (!validImgExts.includes(ext)) {
-          return '';
-        }
-
+      // 若有 ZIP 壓縮檔實例，尋找 zip 內相對應的圖片檔案條目 (包含 _files 資料夾)
+      if (zipInstance) {
         const entries = zipInstance.getEntries();
-
         let matchedEntry = entries.find(e => !e.isDirectory && (e.entryName.endsWith(decodedSrc) || e.entryName === decodedSrc));
         if (!matchedEntry) {
           matchedEntry = entries.find(e => !e.isDirectory && path.basename(e.entryName) === targetFileName);
@@ -557,37 +557,20 @@ function convertHtmlContent(htmlContent, runOutputDir, zipInstance = null) {
             fs.mkdirSync(picturesDir, { recursive: true });
           }
           imgCounter++;
-          const imgFileName = `image_${imgCounter}${ext}`;
+          const imgFileName = `image_${imgCounter}${finalExt}`;
           const destPath = path.join(picturesDir, imgFileName);
           fs.writeFileSync(destPath, matchedEntry.getData());
           extractedImages.push(imgFileName);
-          return `![${alt}](Pictures/${imgFileName})`;
+          return `![${alt || targetFileName || 'image'}](Pictures/${imgFileName})`;
         }
       }
 
-      // 3. 一般非遠端圖片路徑
-      if (!src.startsWith('http://') && !src.startsWith('https://')) {
-        const fileNameOnly = path.basename(src.split('?')[0]);
-        const ext = path.extname(fileNameOnly).toLowerCase();
-        if (!validImgExts.includes(ext)) {
-          return '';
-        }
-        imgCounter++;
-        const imgFileName = `image_${imgCounter}${ext}`;
-        return `![${alt}](Pictures/${imgFileName})`;
-      }
-
-      // 4. 遠端圖片連結處理
-      if (src.startsWith('http://') || src.startsWith('https://')) {
-        const fileNameOnly = path.basename(src.split('?')[0]);
-        const ext = path.extname(fileNameOnly).toLowerCase();
-        if (validImgExts.includes(ext)) {
-          return `![${alt}](${src})`;
-        }
-        return '';
-      }
-
-      return '';
+      // 4. 若為缺漏、破圖或單純上傳 HTML 而未隨附實體圖片：
+      // 保留為明確的缺漏圖片超連結標記 [🖼️ 缺漏圖片: alt](Pictures/檔名)，供使用者下載 Markdown 後清晰辨別並補齊
+      imgCounter++;
+      const fallbackFileName = targetFileName || `image_${imgCounter}${finalExt}`;
+      const altText = alt || targetFileName || '圖片';
+      return `[🖼️ 缺漏圖片: ${altText}](Pictures/${fallbackFileName})`;
     }
   });
 
@@ -600,24 +583,6 @@ function convertHtmlContent(htmlContent, runOutputDir, zipInstance = null) {
   });
 
   let markdown = turndownService.turndown(cleanHtml);
-
-  // 5. 雙重後處理防護：徹底過濾任何未成功提取實體檔案或無效圖片副檔名之破圖標記
-  const validImgExts = ['.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg', '.bmp', '.ico'];
-  markdown = markdown.replace(/!\[.*?\]\(Pictures\/[^\)]*\)/g, (match) => {
-    const matchFile = match.match(/Pictures\/([^\)]+)/);
-    if (matchFile) {
-      const fileName = matchFile[1];
-      const ext = path.extname(fileName).toLowerCase();
-      if (!validImgExts.includes(ext)) {
-        return '';
-      }
-      const pictureFilePath = path.join(runOutputDir, 'Pictures', fileName);
-      if (!fs.existsSync(pictureFilePath)) {
-        return ''; // 若實體檔案不存在，拋棄此破圖語法
-      }
-    }
-    return match;
-  });
 
   // 6. 忠實還原原始版面結構，僅清理外圍頁首頁尾導覽雜訊
   markdown = cleanNavigationNoise(markdown);

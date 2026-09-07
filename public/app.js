@@ -484,10 +484,15 @@ function renderMarkdown(md) {
       .replace(/\*(.*?)\*/g, '<em>$1</em>')
       // 刪除線 ~~strike~~
       .replace(/~~(.*?)~~/g, '<del>$1</del>')
-      // 圖片 ![alt](url) -> 自動導向到伺服器靜態資源路徑
+      // 圖片 ![alt](url) -> 自動導向到伺服器靜態資源路徑 (若檔案缺失或破圖則顯示友善待補齊提示)
       .replace(/!\[(.*?)\]\((.*?)\)/g, (match, alt, src) => {
         const realSrc = src.startsWith('http') || src.startsWith('/') ? src : `/output/${currentFolder}/${src}`;
-        return `<img src="${realSrc}" alt="${alt}" class="preview-img" onerror="this.style.display='none'" />`;
+        const safeAlt = alt || '圖片';
+        return `<span class="img-container"><img src="${realSrc}" alt="${safeAlt}" class="preview-img" onerror="this.style.display='none'; if (!this.nextElementSibling) { const span = document.createElement('span'); span.className='img-missing-placeholder'; span.title='圖片缺漏或尚未補齊'; span.innerHTML='🖼️ 圖片待補齊: <strong>' + (this.getAttribute('alt') || '') + '</strong> (<code>${src}</code>)'; this.parentNode.appendChild(span); }" /></span>`;
+      })
+      // 缺漏圖片待補齊標記 [🖼️ 缺漏圖片: ...] -> 專屬待補齊提示元件
+      .replace(/\[🖼️ 缺漏圖片[：:](.*?)\]\((.*?)\)/g, (match, alt, src) => {
+        return `<span class="img-missing-placeholder" title="此處圖片缺漏，請至目錄補齊">🖼️ 缺漏圖片待補齊: <strong>${alt.trim()}</strong> (<code>${src}</code>)</span>`;
       })
       // 連結 [text](url)
       .replace(/\[(.*?)\]\((.*?)\)/g, '<a href="$2" target="_blank">$1</a>');
