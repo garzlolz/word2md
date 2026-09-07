@@ -432,6 +432,9 @@ function renderMarkdown(md) {
   // 還原 <span style="color:..."> 標籤，因為後端會輸出此標籤來表示文字顏色
   html = html.replace(/&lt;span style="color:(#[0-9A-Fa-f]{3,6})"&gt;/g, '<span style="color:$1">').replace(/&lt;\/span&gt;/g, '</span>');
 
+  // 還原 <br> 標籤，以支援表格等單元格內的換行
+  html = html.replace(/&lt;br\s*\/?&gt;/gi, '<br>');
+
   // 解析表格
   const lines = html.split('\n');
   let inTable = false;

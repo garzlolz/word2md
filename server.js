@@ -4,7 +4,7 @@ const AdmZip = require('adm-zip');
 const { DOMParser } = require('@xmldom/xmldom');
 const pdf2md = require('@opendocsg/pdf2md');
 const TurndownService = require('turndown');
-const { gfm } = require('turndown-plugin-gfm');
+const { highlightedCodeBlock, strikethrough, taskListItems } = require('turndown-plugin-gfm');
 const fs = require('fs');
 const path = require('path');
 const { exec } = require('child_process');
@@ -333,6 +333,121 @@ function convertChildren(node, styles, imageMap, listState) {
   return result;
 }
 
+// 取得直接隸屬於該表格的行 (排除巢狀表格的 tr)
+function getTableRows(tableNode) {
+  const rows = [];
+  function collectTr(parent) {
+    for (let i = 0; i < parent.childNodes.length; i++) {
+      const child = parent.childNodes[i];
+      if (child.nodeType !== 1) continue;
+      const tag = (child.tagName || child.nodeName || '').toUpperCase();
+      if (tag === 'TR') {
+        rows.push(child);
+      } else if (tag === 'THEAD' || tag === 'TBODY' || tag === 'TFOOT') {
+        collectTr(child);
+      }
+    }
+  }
+  collectTr(tableNode);
+  return rows;
+}
+
+// 取得直接隸屬於該行的儲存格 (排除可能巢狀結構中的其他儲存格)
+function getRowCells(trNode) {
+  const cells = [];
+  for (let i = 0; i < trNode.childNodes.length; i++) {
+    const child = trNode.childNodes[i];
+    if (child.nodeType !== 1) continue;
+    const tag = (child.tagName || child.nodeName || '').toUpperCase();
+    if (tag === 'TD' || tag === 'TH') {
+      cells.push(child);
+    }
+  }
+  return cells;
+}
+
+// 格式化單元格內容為 Markdown 相容文字
+function formatCellContent(cell, service) {
+  let text = service.turndown(cell.innerHTML || '').trim();
+  text = text.replace(/\r?\n+/g, '<br>');
+  text = text.replace(/\|/g, '\\|');
+  return text;
+}
+
+// 強效將 HTML Table 轉換為標準 GFM Markdown 表格 (支援 rowspan/colspan 2D 展開與純 td 表格)
+function convertTableNode(node, service) {
+  const trElements = getTableRows(node);
+  if (trElements.length === 0) return '';
+
+  const grid = [];
+
+  trElements.forEach((tr, rowIndex) => {
+    if (!grid[rowIndex]) grid[rowIndex] = [];
+    let colIndex = 0;
+
+    const cells = getRowCells(tr);
+    cells.forEach(cell => {
+      // 尋找當前列下一個尚未被跨行/跨欄佔用的位置
+      while (grid[rowIndex][colIndex] !== undefined) {
+        colIndex++;
+      }
+
+      let rowspan = parseInt(cell.getAttribute('rowspan') || '1', 10);
+      let colspan = parseInt(cell.getAttribute('colspan') || '1', 10);
+      if (isNaN(rowspan) || rowspan < 1) rowspan = 1;
+      if (isNaN(colspan) || colspan < 1) colspan = 1;
+
+      const cellText = formatCellContent(cell, service);
+
+      for (let r = 0; r < rowspan; r++) {
+        const targetRow = rowIndex + r;
+        if (!grid[targetRow]) grid[targetRow] = [];
+        for (let c = 0; c < colspan; c++) {
+          const targetCol = colIndex + c;
+          grid[targetRow][targetCol] = (r === 0 && c === 0) ? cellText : '';
+        }
+      }
+
+      colIndex += colspan;
+    });
+  });
+
+  if (grid.length === 0) return '';
+
+  let maxCols = 0;
+  for (const row of grid) {
+    if (row && row.length > maxCols) {
+      maxCols = row.length;
+    }
+  }
+
+  if (maxCols === 0) return '';
+
+  const normalizedRows = [];
+  for (let r = 0; r < grid.length; r++) {
+    const row = grid[r] || [];
+    const newRow = [];
+    for (let c = 0; c < maxCols; c++) {
+      newRow.push((row[c] || '').trim());
+    }
+    normalizedRows.push(newRow);
+  }
+
+  const hasAnyContent = normalizedRows.some(row => row.some(cell => cell.length > 0));
+  if (!hasAnyContent) return '';
+
+  const header = normalizedRows[0];
+  const lines = [];
+  lines.push('| ' + header.join(' | ') + ' |');
+  lines.push('| ' + header.map(() => '---').join(' | ') + ' |');
+
+  for (let r = 1; r < normalizedRows.length; r++) {
+    lines.push('| ' + normalizedRows[r].join(' | ') + ' |');
+  }
+
+  return '\n\n' + lines.join('\n') + '\n\n';
+}
+
 // 統一 HTML 轉 Markdown 核心邏輯 (包含強效雜訊/側邊欄清理與主體內容精準提取)
 function convertHtmlContent(htmlContent, runOutputDir, zipInstance = null) {
   // 1. 移除無效或干擾腳本與樣式
@@ -365,7 +480,7 @@ function convertHtmlContent(htmlContent, runOutputDir, zipInstance = null) {
     headingStyle: 'atx',
     codeBlockStyle: 'fenced'
   });
-  turndownService.use(gfm);
+  turndownService.use([highlightedCodeBlock, strikethrough, taskListItems]);
 
   // 忽略網頁導覽與無關空連結
   turndownService.addRule('ignoreNavLinks', {
@@ -473,6 +588,14 @@ function convertHtmlContent(htmlContent, runOutputDir, zipInstance = null) {
       }
 
       return '';
+    }
+  });
+
+  // 自訂 HTML Table 轉換規則 (支援 Notion 表格與跨欄跨列展開)
+  turndownService.addRule('table', {
+    filter: 'table',
+    replacement: function (content, node) {
+      return convertTableNode(node, turndownService);
     }
   });
 
