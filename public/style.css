@@ -855,6 +855,37 @@ body {
   font-family: monospace;
 }
 
+/* 待辦事項 (Task list / Checkbox) 預覽樣式 */
+.markdown-body li.task-list-item {
+  list-style-type: none !important;
+  margin-bottom: 0.4rem;
+}
+
+.markdown-body .task-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  cursor: default;
+  vertical-align: middle;
+  line-height: 1.5;
+}
+
+.markdown-body .task-checkbox {
+  appearance: auto;
+  -webkit-appearance: auto;
+  width: 1.05rem;
+  height: 1.05rem;
+  accent-color: var(--primary-color, #6366f1);
+  cursor: default;
+  margin: 0;
+  vertical-align: middle;
+}
+
+.markdown-body .task-done {
+  text-decoration: line-through;
+  opacity: 0.55;
+}
+
 .markdown-body table {
   border-collapse: collapse;
   width: 100%;

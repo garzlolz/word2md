@@ -475,12 +475,135 @@ function convertHtmlContent(htmlContent, runOutputDir, zipInstance = null) {
       cleanHtml = cleanHtml.substring(startIdx);
     }
   }
+    // 5. 增強清單與 Checkbox 前置處理 (Notion 官方匯出與網頁另存新檔之 DOM 語意化)
+  // (1) 處理 Notion 官方匯出帶有 li.to-do-children-checked / unchecked 的情況
+  cleanHtml = cleanHtml.replace(/<li[^>]*\bclass="[^"]*to-do-children-checked[^"]*"[^>]*>([\s\S]*?)<\/li>/gi, (match, inner) => {
+    const withInput = inner.replace(/<div[^>]*\bclass="[^"]*checkbox[^"]*"[^>]*>[\s\S]*?<\/div>/gi, '<input type="checkbox" checked="checked" />');
+    return `<li class="to-do-item">${withInput}</li>`;
+  });
+  cleanHtml = cleanHtml.replace(/<li[^>]*\bclass="[^"]*to-do-children-unchecked[^"]*"[^>]*>([\s\S]*?)<\/li>/gi, (match, inner) => {
+    const withInput = inner.replace(/<div[^>]*\bclass="[^"]*checkbox[^"]*"[^>]*>[\s\S]*?<\/div>/gi, '<input type="checkbox" />');
+    return `<li class="to-do-item">${withInput}</li>`;
+  });
+
+  // (2) 處理 Notion 官方匯出帶有 checkbox-on / checkbox-off 的情況
+  cleanHtml = cleanHtml
+    .replace(/<div[^>]*\bclass="[^"]*checkbox-on[^"]*"[^>]*>[\s\S]*?<\/div>/gi, '<input type="checkbox" checked="checked" />')
+    .replace(/<div[^>]*\bclass="[^"]*checkbox-off[^"]*"[^>]*>[\s\S]*?<\/div>/gi, '<input type="checkbox" />');
+
+  // (3) 處理 Notion 網頁另存新檔中 role="checkbox" 的情況
+  cleanHtml = cleanHtml
+    .replace(/<div[^>]*\brole="checkbox"[^>]*\baria-checked="true"[^>]*>[\s\S]*?<\/div>/gi, '<input type="checkbox" checked="checked" />')
+    .replace(/<div[^>]*\brole="checkbox"[^>]*\baria-checked="false"[^>]*>[\s\S]*?<\/div>/gi, '<input type="checkbox" />')
+    .replace(/<div[^>]*\bclass="[^"]*notion-to-do-checkbox[^"]*"[^>]*>[\s\S]*?<\/div>/gi, '<input type="checkbox" />');
+
+  // (4) 清理 Notion 圓點裝飾 (含有 • 或 · 字元的小容器)
+  cleanHtml = cleanHtml.replace(/<div[^>]*style="[^"]*width:\s*24px[^"]*"[^>]*>[\s\S]*?[•·][\s\S]*?<\/div>/gi, '');
 
   const turndownService = new TurndownService({
     headingStyle: 'atx',
+    hr: '---',
+    bulletListMarker: '-',
     codeBlockStyle: 'fenced'
   });
-  turndownService.use([highlightedCodeBlock, strikethrough, taskListItems]);
+  turndownService.use([highlightedCodeBlock, strikethrough]);
+
+  // 自訂 Checkbox 規則 (支援原生 input 以及轉換後的 checkbox)
+  turndownService.addRule('inputCheckbox', {
+    filter: function (node) {
+      return node.nodeName === 'INPUT' && (node.getAttribute('type') || '').toLowerCase() === 'checkbox';
+    },
+    replacement: function (content, node) {
+      const checked = node.checked || node.getAttribute('checked') !== null;
+      return (checked ? '[x]' : '[ ]') + ' ';
+    }
+  });
+
+  // 計算 Notion 網頁區塊之清單巢狀層級
+  function getNotionListIndent(node) {
+    let depth = 0;
+    let curr = node.parentNode;
+    while (curr && curr.nodeName !== 'BODY' && curr.nodeName !== 'HTML') {
+      const cls = (curr.className || '').toString().toLowerCase();
+      if (
+        cls.includes('notion-bulleted_list-block') ||
+        cls.includes('notion-numbered_list-block') ||
+        cls.includes('notion-to_do-block') ||
+        cls.includes('bulleted-list') ||
+        cls.includes('to-do-list')
+      ) {
+        depth++;
+      }
+      curr = curr.parentNode;
+    }
+    return '  '.repeat(depth);
+  }
+
+  // 忽略純裝飾性項目符號 (• / ·)
+  turndownService.addRule('ignoreBulletDecorations', {
+    filter: function (node) {
+      if (node.nodeName !== 'DIV' && node.nodeName !== 'SPAN') return false;
+      const text = (node.textContent || '').trim();
+      return text === '•' || text === '·';
+    },
+    replacement: function () {
+      return '';
+    }
+  });
+
+  // 處理 Notion 網頁另存新檔：To-do Block (DIV 形式)
+  turndownService.addRule('notionWebTodoBlock', {
+    filter: function (node) {
+      if (node.nodeName !== 'DIV') return false;
+      const className = (node.className || '').toString().toLowerCase();
+      return className.includes('notion-to_do-block') || className.includes('notion-to-do');
+    },
+    replacement: function (content, node) {
+      let cleanContent = content.trim();
+      const indent = getNotionListIndent(node);
+      if (!/^\[([ xX])\]/.test(cleanContent)) {
+        const checkboxEl = node.querySelector ? node.querySelector('input[type="checkbox"]') : null;
+        const isChecked = checkboxEl ? (checkboxEl.checked || checkboxEl.getAttribute('checked') !== null) : false;
+        const mark = isChecked ? '[x] ' : '[ ] ';
+        cleanContent = mark + cleanContent;
+      }
+      // 壓縮 checkbox 標記與後續內容間的多餘空行，並將清單內部換行壓平
+      cleanContent = cleanContent.replace(/^(\[[ xX]\])\s*[\r\n]+\s*/, '$1 ').replace(/[\r\n]+/g, ' ').trim();
+      return '\n' + indent + '- ' + cleanContent + '\n';
+    }
+  });
+
+  // 處理 Notion 網頁另存新檔：Bulleted List Block (DIV 形式)
+  turndownService.addRule('notionWebBulletedBlock', {
+    filter: function (node) {
+      if (node.nodeName !== 'DIV') return false;
+      const className = (node.className || '').toString().toLowerCase();
+      return className.includes('notion-bulleted_list-block') || className.includes('notion-bulleted-list');
+    },
+    replacement: function (content, node) {
+      const indent = getNotionListIndent(node);
+      let cleanContent = content.replace(/^[\s•·\-\*]+\s*/, '').replace(/[\r\n]+/g, ' ').trim();
+      return '\n' + indent + '- ' + cleanContent + '\n';
+    }
+  });
+
+  // 處理 Notion 網頁另存新檔：Numbered List Block (DIV 形式)
+  turndownService.addRule('notionWebNumberedBlock', {
+    filter: function (node) {
+      if (node.nodeName !== 'DIV') return false;
+      const className = (node.className || '').toString().toLowerCase();
+      return className.includes('notion-numbered_list-block') || className.includes('notion-numbered-list');
+    },
+    replacement: function (content, node) {
+      const indent = getNotionListIndent(node);
+      let cleanContent = content.trim();
+      const numMatch = cleanContent.match(/^(\d+)[\.\)]\s*(.*)$/);
+      if (numMatch) {
+        return '\n' + indent + `${numMatch[1]}. ${numMatch[2].replace(/[\r\n]+/g, ' ').trim()}\n`;
+      }
+      return '\n' + indent + '1. ' + cleanContent.replace(/[\r\n]+/g, ' ').trim() + '\n';
+    }
+  });
 
   // 忽略網頁導覽與無關空連結
   turndownService.addRule('ignoreNavLinks', {

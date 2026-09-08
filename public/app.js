@@ -531,17 +531,32 @@ function renderMarkdown(md) {
     const leadingSpaces = line.length - line.trimStart().length;
     const indentPx = 20 + Math.floor(leadingSpaces / 2) * 20;
 
-    // 無序清單
-    if (trimmed.startsWith('- ')) {
-      // 簡單的 list-item 轉換
-      const listContent = trimmed.substring(2);
+    // 1. 無序清單 (- , * , + )
+    const bulletMatch = trimmed.match(/^([-*+])\s+(.+)$/);
+    if (bulletMatch) {
+      const listContent = bulletMatch[2].trim();
+      // 支援 GFM 待辦清單 [ ] 或 [x]
+      const taskMatch = listContent.match(/^\[([ xX])\]\s*(.*)$/);
+      if (taskMatch) {
+        const isChecked = taskMatch[1].toLowerCase() === 'x';
+        const taskText = parseInlineElements(taskMatch[2]);
+        return `<li class="task-list-item" style="list-style-type: none; margin-left: ${indentPx}px;"><label class="task-label"><input type="checkbox" class="task-checkbox" ${isChecked ? 'checked' : ''} disabled /> <span class="${isChecked ? 'task-done' : ''}">${taskText}</span></label></li>`;
+      }
       return `<li style="list-style-type: disc; margin-left: ${indentPx}px;">${parseInlineElements(listContent)}</li>`;
     }
 
-    // 有序清單
+    // 2. 有序清單
     const numListMatch = trimmed.match(/^(\d+)\.\s+(.+)$/);
     if (numListMatch) {
       return `<li style="list-style-type: decimal; margin-left: ${indentPx}px;">${parseInlineElements(numListMatch[2])}</li>`;
+    }
+
+    // 3. 獨立待辦核取方塊 (未帶清單前綴符號之 [ ] 或 [x])
+    const standaloneTaskMatch = trimmed.match(/^\[([ xX])\]\s*(.*)$/);
+    if (standaloneTaskMatch) {
+      const isChecked = standaloneTaskMatch[1].toLowerCase() === 'x';
+      const taskText = parseInlineElements(standaloneTaskMatch[2]);
+      return `<li class="task-list-item" style="list-style-type: none; margin-left: ${indentPx}px;"><label class="task-label"><input type="checkbox" class="task-checkbox" ${isChecked ? 'checked' : ''} disabled /> <span class="${isChecked ? 'task-done' : ''}">${taskText}</span></label></li>`;
     }
 
     return `<p>${parseInlineElements(line)}</p>`;
