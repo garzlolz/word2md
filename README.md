@@ -1,152 +1,119 @@
 # word2md
 
 [![License: ISC](https://img.shields.io/badge/License-ISC-blue.svg)](https://opensource.org/licenses/ISC)
-[![Node.js Version](https://img.shields.io/badge/node-%3E%3D18.0.0-brightgreen.svg)](https://nodejs.org/)
-[![Framework](https://img.shields.io/badge/Express-5.x-darkgreen.svg)](https://expressjs.com/)
+[![Deploy to GitHub Pages](https://img.shields.io/badge/GitHub%20Pages-Ready-brightgreen.svg)](https://pages.github.com/)
+[![Architecture: Pure Client-Side](https://img.shields.io/badge/Architecture-Pure%20ESM%20%2B%20CDN-purple.svg)](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Modules)
 
-**word2md** is a fast, lightweight, and modern document-to-Markdown converter. It seamlessly transforms **ODT (OpenDocument Text)**, **HTML**, and **ZIP web archives** into structured Markdown documents, automatically extracting embedded images and organizing output into timestamped folders.
+**word2md** 是一個極速、輕量且注重隱私的**純前端多格式文檔轉 Markdown 工具**。
 
----
-
-## Features
-
-- **Modern Web UI**:
-  - Premium dark theme featuring sleek glassmorphism, HSL-tailored color schemes, vibrant gradients, and smooth micro-animations.
-  - Interactive **Drag & Drop** file uploader with glowing hover effects.
-  - **Live Rendered Preview & Raw Code View**: Split-pane interface allowing real-time inspection and instant copy-to-clipboard functionality.
-  - **One-Click Folder Opener**: Open the output directory directly in your operating system's file manager with a single click.
-
-- **Multi-Format Processing**:
-  - **ODT Converter**: Parses XML structure, inline styles (bold, italic, strikethrough, underline), nested lists, GFM tables, and extracts embedded document images.
-  - **HTML Engine**: Utilizes Turndown with GFM extensions to convert web pages (such as Notion exports), cleans unwanted `<script>` and `<style>` blocks, and decodes Base64 embedded images.
-  - **ZIP Web Archive Support**: Automatically unpacks HTML web exports and associated resource folders, parsing the primary HTML document and extracting all local images into `Pictures/`.
-
-- **Automated Image Extraction**:
-  - Automatically extracts all embedded images and Base64 Data URLs into an isolated `Pictures/` subdirectory within the output folder.
-  - Fixes all Markdown image references automatically to normalized relative paths (e.g., `![alt](Pictures/image_1.png)`).
-
-- **Timestamp Archiving & History Tracking**:
-  - Organizes every conversion run into an isolated timestamped folder (`output/YYYY-MM-DD_HHmmss/`).
-  - Keeps a history log allowing instant reloading of past conversions and output folders.
-
-- **Dual Operating Modes**:
-  - Supports both interactive **Web UI** and lightweight **CLI script** execution.
+專案採用 **零打包、純靜態 ESM + CDN 架構**，所有文件解析（ODT、HTML、ZIP 網頁包）與圖片抽取**100% 在使用者瀏覽器的本地記憶體中完成，完全不將檔案上傳到任何外部伺服器**。支援直接託管於 **GitHub Pages** 或任何靜態主機。
 
 ---
 
-## Supported Formats Overview
+## 核心特色 (Features)
 
-| Format | File Extensions | Features & Capabilities |
+- **100% 本地純前端架構 (Zero Server & High Privacy)**:
+  - 檔案**零上傳**：完全在瀏覽器記憶體內使用原生 `DOMParser` 與 `JSZip` 進行解析，保護機密文件與 PRD 商業隱私。
+  - 無打包步驟 (No Build Step)：採用純原生 ES Modules，改完即測，直接部署。
+  - 一鍵支援 **GitHub Pages** 預設靜態部署（根目錄即站台）。
+
+- **現代化視覺與預覽介面 (Modern Web UI)**:
+  - 質感深色玻璃擬態風格（Glassmorphism）、平滑微動畫與醒目拖曳上傳卡片。
+  - **即時排版預覽與源碼對照**：雙頁籤自由切換，即時檢視轉換結果與一鍵複製 Markdown。
+  - **寬表格自適應水平滾動條**：徹底解決多欄位寬表格（如 Notion PRD）將版面撐開的問題，提供滑順獨立的滾動條。
+  - **GFM 待辦清單 (Task List)**：自動將 Notion 待辦事項轉換並渲染為勾選方塊與完成刪除線。
+
+- **多格式處理能力 (Multi-Format)**:
+  - **ODT 轉換**：解析 XML 結構、大綱標題階層、粗體/斜體/底線/刪除線/色彩、巢狀清單、複雜表格與目錄大綱。
+  - **HTML 轉換**：使用 Turndown + GFM 外掛，深度優化 Notion 匯出語法，自動清洗導覽雜訊與抽取 Base64 圖片。
+  - **ZIP 網頁包解析**：自動解壓網頁匯出包，抽取圖片至記憶體並將 Markdown 引用自動修正為 `Pictures/圖片檔名`。
+  - **缺漏圖片安全標記**：當圖片因匯出缺失時，自動保留 `[🖼️ 缺漏圖片: 名稱](Pictures/檔名)` 徽章供後續手動補齊。
+
+- **前端記憶體打包與下載**:
+  - **一鍵下載 .md**：直接以 Blob 觸發下載 Markdown 純文字檔。
+  - **一鍵下載 ZIP 包**：在前端記憶體中將 `.md` 與 `Pictures/` 圖片資料夾自動打包成 ZIP 檔下載。
+
+- **瀏覽器本地歷史紀錄 (Local Storage)**:
+  - 自動於瀏覽器 `localStorage` 保存最近 50 筆轉換紀錄，重新整理不遺失，點擊可立即重載檢視。
+
+---
+
+## 支援格式一覽 (Supported Formats)
+
+| 格式 | 副檔名 | 特色與支援項目 |
 | :--- | :--- | :--- |
-| **ODT** | `.odt` | Headings (`#`-`######`), bold (`**`), italic (`*`), strikethrough (`~~`), underline (`<u>`), GFM tables, nested lists, image zip extraction |
-| **HTML** | `.html`, `.htm` | GFM tables, lists, Base64 image extraction & decoding, `<style>` / `<script>` filtering |
-| **ZIP Package** | `.zip` | Full web page archives (containing `.html` and `_files` image resource directories), automatic HTML parsing & relative image extraction |
+| **ODT** | `.odt` | 大綱標題 (`#`-`######`)、樣式 (`**`, `*`, `~~`, `<u>`, 顏色)、GFM 表格、巢狀清單、目錄 (TOC)、圖片抽取 |
+| **HTML** | `.html`, `.htm` | GFM 表格、清單、Notion 待辦清單 (`- [ ]`)、Base64 圖片抽取、`<style>` / `<script>` 清理 |
+| **ZIP 網頁包** | `.zip` | 包含主 HTML 與 `_files` 圖片資料夾的完整網頁封裝包，自動關聯圖片並轉化為相對路徑 |
 
 ---
 
-## Tech Stack
+## 技術棧 (Tech Stack)
 
-- **Backend**: Node.js, Express 5, Multer, Adm-Zip, `@xmldom/xmldom`, Turndown, `turndown-plugin-gfm`
-- **Frontend**: Vanilla HTML5, Vanilla CSS3 (HSL Design System), ES6+ JavaScript, Lucide Icons, Google Fonts (Outfit & Inter)
+- **前端核心**：純原生 ES Modules (JavaScript ES2022+)
+- **外掛依賴 (CDN)**：
+  - [JSZip 3.10.1](https://stuk.github.io/jszip/)（純前端 ZIP/ODT 解壓縮與打包）
+  - [Turndown 7.2.0](https://github.com/mixmark-io/turndown) + [turndown-plugin-gfm](https://github.com/mixmark-io/turndown-plugin-gfm)（HTML 轉 Markdown）
+  - [Lucide Icons](https://lucide.dev/)（極簡現代圖標集）
+- **樣式系統**：Vanilla CSS3（HSL Design Tokens、自適應 Grid 佈局、Glassmorphism）
+- **資料儲存**：瀏覽器原生 `localStorage`（歷史紀錄）
 
 ---
 
-## Repository Structure
+## 專案結構 (Repository Structure)
 
 ```text
 word2md/
-├── public/                 # Web UI static assets
-│   ├── index.html          # Main HTML entry point & UI layout
-│   ├── style.css           # Glassmorphism & dark design system styles
-│   └── app.js              # Client-side state, drag-and-drop & API integration
-├── output/                 # Generated Markdown files & extracted image folders
-├── generate-test-odt.js    # Utility script to generate a sample test ODT file
-├── run-convert.js          # Standalone CLI conversion tool
-├── server.js               # Express server & API endpoints
-├── package.json            # Dependencies and scripts
-└── README.md               # Documentation
+├── index.html            # 主頁面入口，CDN 引入 JSZip、Turndown 與 Lucide
+├── style.css             # Glassmorphism 設計系統與自適應樣式
+├── js/                   # 純前端 ESM 模組目錄
+│   ├── main.js           # 主控制器 (UI 事件、拖曳上傳、預覽渲染)
+│   ├── zip-handler.js    # JSZip 本地解包與記憶體打包下載
+│   ├── storage.js        # localStorage 歷史紀錄管理器
+│   └── converters/
+│       ├── odt.js        # 原生 DOMParser ODT 轉換模組
+│       └── html.js       # Turndown + Notion HTML 轉換模組
+├── run-convert.js        # 可選的本機 Node.js CLI 工具
+├── package.json          # 開發用輔助配置 (可選)
+└── README.md             # 專案文件
 ```
 
 ---
 
-## Quick Start
+## 快速開始與部署 (Quick Start & Deployment)
 
-### 1. Prerequisites
+### 部署到 GitHub Pages (推薦)
 
-Ensure you have **Node.js (>= 18.0.0)** installed on your machine.
+本專案為**零建置純靜態網站**，直接推送至 GitHub 即可在 1 分鐘內完成部署：
 
-### 2. Installation
+1. 將代碼推送至您的 GitHub 儲存庫：
+   ```bash
+   git push origin main
+   ```
+2. 前往 GitHub 儲存庫的 **Settings > Pages**。
+3. 在 **Build and deployment > Source** 選擇 **Deploy from a branch**。
+4. Branch 選擇 `main`，資料夾選擇 `/ (root)`，點擊 **Save**。
+5. 等待數十秒，即可透過 `https://<使用者名稱>.github.io/<儲存庫名稱>/` 直接訪問！
 
-Clone the repository and install dependencies using `npm` or `pnpm`:
+---
 
-```bash
-# Clone the repository
-git clone https://github.com/garzlolz/word2md.git
-cd word2md
+### 本機開發與執行 (Local Development)
 
-# Install dependencies
-npm install
-# or
-pnpm install
-```
+由於使用了瀏覽器原生 ES Modules，請勿直接以 `file://` 開啟，需透過簡易本機靜態伺服器：
 
-### 3. Launching the Web UI
+#### 方法 A：使用 VS Code Live Server (最簡單)
+1. 在 VS Code 安裝擴充套件「Live Server」。
+2. 對著 `index.html` 按右鍵，選擇 **Open with Live Server**。
 
-Start the development server. The server will run on `http://localhost:3000` and automatically open your default web browser:
-
+#### 方法 B：使用 npm / npx
 ```bash
 npm run dev
-# or
-pnpm dev
+# 或直接執行
+npx serve .
 ```
 
-Drag and drop your `.odt`, `.pdf`, or `.html` file onto the dropzone to start converting!
-
----
-
-## CLI Usage
-
-If you prefer converting files via command line without running the Web UI:
-
+#### 方法 C：使用 Python
 ```bash
-# Convert the default sample file
-npm run convert
-
-# Or specify a custom document file path
-node run-convert.js "path/to/your/document.odt"
+python -m http.server 8000
 ```
-
----
-
-## API Endpoints
-
-### `POST /api/convert`
-Accepts a single uploaded file and returns the generated Markdown string and output directory info.
-
-- **Content-Type**: `multipart/form-data`
-- **Body**: `file` (Binary File: `.odt`, `.pdf`, `.html`, `.htm`)
-- **Response**:
-  ```json
-  {
-    "success": true,
-    "markdown": "# Document Title\n\nConverted text content...",
-    "outputPath": "D:\\path\\to\\word2md\\output\\2026-07-30_160000",
-    "mdFile": "document.md",
-    "folderName": "2026-07-30_160000",
-    "imageCount": 2
-  }
-  ```
-
-### `POST /api/open-folder`
-Triggers native OS process (File Explorer / Finder) to open the specified output folder.
-
-- **Body**: `{ "folderPath": "D:\\path\\to\\output\\folder" }`
-
-### `GET /api/history`
-Returns the recent conversion history items.
-
----
-
-## License
-
-This project is open source and available under the [ISC License](LICENSE).
+在瀏覽器打開 `http://localhost:8000` 即可使用。

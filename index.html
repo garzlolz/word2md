@@ -8,8 +8,17 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <!-- Lucide Icons (via unpkg) for modern minimal icons -->
+
+  <!-- JSZip (for Client-side ODT & ZIP decompression/packaging) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+
+  <!-- Turndown & GFM Plugin (for HTML to Markdown) -->
+  <script src="https://unpkg.com/turndown/dist/turndown.js"></script>
+  <script src="https://unpkg.com/turndown-plugin-gfm/dist/turndown-plugin-gfm.js"></script>
+
+  <!-- Lucide Icons -->
   <script src="https://unpkg.com/lucide@latest"></script>
+
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -22,7 +31,7 @@
         </div>
         <div class="logo-text">
           <h1>word<span>2md</span></h1>
-          <p>輕量、現代的文檔格式轉換工具</p>
+          <p>輕量、現代的純前端文檔格式轉換工具</p>
         </div>
       </div>
       <div class="header-actions">
@@ -55,7 +64,7 @@
               </div>
               <h3>將 .odt, .html 或 .zip 檔案拖曳至此</h3>
               <p>或點擊此處瀏覽電腦檔案</p>
-              <span class="file-limit">支援最大 50MB 檔案</span>
+              <span class="file-limit">支援本地純前端極速轉換・檔案不外傳</span>
             </div>
             <input type="file" id="file-input" accept=".odt,.html,.htm,.zip" style="display: none;">
           </div>
@@ -82,9 +91,9 @@
               <i data-lucide="history"></i>
               <h2>轉換歷史記錄</h2>
             </div>
-            <button class="btn-clean-history" id="btn-clean-history" title="清理已遺失的歷史紀錄" style="display: none;">
+            <button class="btn-clean-history" id="btn-clean-history" title="清空歷史紀錄" style="display: none;">
               <i data-lucide="trash-2"></i>
-              <span>清理失效</span>
+              <span>清空紀錄</span>
             </button>
           </div>
           <div class="history-list" id="history-list">
@@ -134,7 +143,7 @@
             <div class="loader-container" id="loader" style="display: none;">
               <div class="spinner"></div>
               <h3>正在解析文件並轉換...</h3>
-              <p>擷取排版、格式與結構中</p>
+              <p>純前端本地即時解析中</p>
             </div>
 
             <!-- Welcome Screen -->
@@ -149,8 +158,8 @@
             <!-- Output Info Panel (Stats) -->
             <div class="output-info-bar" id="output-info-bar" style="display: none;">
               <div class="info-stat">
-                <span class="stat-label">產出路徑</span>
-                <span class="stat-value" id="info-path">output/2026-07-13_110300/</span>
+                <span class="stat-label">當前文件</span>
+                <span class="stat-value" id="info-path">-</span>
               </div>
               <div class="info-stat">
                 <span class="stat-label">提取圖片數</span>
@@ -181,6 +190,7 @@
     <span class="toast-message">提示訊息</span>
   </div>
 
-  <script src="app.js"></script>
+  <!-- Main Pure Client-Side App Module -->
+  <script type="module" src="./js/main.js"></script>
 </body>
 </html>

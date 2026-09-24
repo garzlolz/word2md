@@ -3,22 +3,17 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-    "start": "node server.js",
-    "dev": "node server.js",
+    "dev": "npx serve .",
+    "start": "npx serve .",
     "convert": "node run-convert.js",
-    "gen-test": "node generate-test-odt.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "gen-test": "node generate-test-odt.js"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "description": "",
-  "dependencies": {
+  "description": "Pure client-side multi-format document-to-Markdown converter",
+  "devDependencies": {
     "@xmldom/xmldom": "^0.9.10",
-    "adm-zip": "^0.6.0",
-    "express": "^5.2.1",
-    "multer": "^2.2.0",
-    "turndown": "^7.2.4",
-    "turndown-plugin-gfm": "^1.0.2"
+    "adm-zip": "^0.6.0"
   }
 }
