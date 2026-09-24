@@ -2,118 +2,125 @@
 
 [![License: ISC](https://img.shields.io/badge/License-ISC-blue.svg)](https://opensource.org/licenses/ISC)
 [![Deploy to GitHub Pages](https://img.shields.io/badge/GitHub%20Pages-Ready-brightgreen.svg)](https://pages.github.com/)
-[![Architecture: Pure Client-Side](https://img.shields.io/badge/Architecture-Pure%20ESM%20%2B%20CDN-purple.svg)](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Modules)
+[![Architecture: Clean Code](https://img.shields.io/badge/Architecture-Node%20Best%20Practices-blueviolet.svg)](https://github.com/goldbergyoni/nodebestpractices)
 
-**word2md** 是一個極速、輕量且注重隱私的**純前端多格式文檔轉 Markdown 工具**。
+**word2md** 是一個在瀏覽器端運作的**多格式文件轉 Markdown 工具**。
 
-專案採用 **零打包、純靜態 ESM + CDN 架構**，所有文件解析（ODT、HTML、ZIP 網頁包）與圖片抽取**100% 在使用者瀏覽器的本地記憶體中完成，完全不將檔案上傳到任何外部伺服器**。支援直接託管於 **GitHub Pages** 或任何靜態主機。
+專案遵循 [goldbergyoni/nodebestpractices](https://github.com/goldbergyoni/nodebestpractices) 分層架構，所有解析（ODT、HTML、ZIP 網頁包）與圖片擷取均直接在瀏覽器本機記憶體完成，檔案不會上傳到任何伺服器。支援直接部署於 **GitHub Pages** 或各類靜態主機。
 
 ---
 
-## 核心特色 (Features)
+## 主要特色 (Features)
 
-- **100% 本地純前端架構 (Zero Server & High Privacy)**:
-  - 檔案**零上傳**：完全在瀏覽器記憶體內使用原生 `DOMParser` 與 `JSZip` 進行解析，保護機密文件與 PRD 商業隱私。
-  - 無打包步驟 (No Build Step)：採用純原生 ES Modules，改完即測，直接部署。
-  - 一鍵支援 **GitHub Pages** 預設靜態部署（根目錄即站台）。
+- **純前端運作，檔案不上傳**:
+  - 瀏覽器內解析：使用原生 `DOMParser` 與 `JSZip` 處理檔案，不經任何後端伺服器，保障隱私。
+  - 免打包流程：使用原生 ES Modules，修改後重新整理即可測試。
+  - 支援靜態託管：可直接部署於 GitHub Pages 等靜態網站服務。
 
-- **現代化視覺與預覽介面 (Modern Web UI)**:
-  - 質感深色玻璃擬態風格（Glassmorphism）、平滑微動畫與醒目拖曳上傳卡片。
-  - **即時排版預覽與源碼對照**：雙頁籤自由切換，即時檢視轉換結果與一鍵複製 Markdown。
-  - **寬表格自適應水平滾動條**：徹底解決多欄位寬表格（如 Notion PRD）將版面撐開的問題，提供滑順獨立的滾動條。
-  - **GFM 待辦清單 (Task List)**：自動將 Notion 待辦事項轉換並渲染為勾選方塊與完成刪除線。
+- **預覽與編輯輔助**:
+  - **排版預覽與原始碼切換**：可切換檢視渲染後的排版或 Markdown 原始碼，並提供快速複製功能。
+  - **寬表格自適應水平捲動**：避免多欄位表格撐破版面，提供獨立水平捲動條。
+  - **待辦清單 (GFM Task List)**：支援轉換待辦核取方塊與完成線。
 
-- **多格式處理能力 (Multi-Format)**:
-  - **ODT 轉換**：解析 XML 結構、大綱標題階層、粗體/斜體/底線/刪除線/色彩、巢狀清單、複雜表格與目錄大綱。
-  - **HTML 轉換**：使用 Turndown + GFM 外掛，深度優化 Notion 匯出語法，自動清洗導覽雜訊與抽取 Base64 圖片。
-  - **ZIP 網頁包解析**：自動解壓網頁匯出包，抽取圖片至記憶體並將 Markdown 引用自動修正為 `Pictures/圖片檔名`。
-  - **缺漏圖片安全標記**：當圖片因匯出缺失時，自動保留 `[🖼️ 缺漏圖片: 名稱](Pictures/檔名)` 徽章供後續手動補齊。
+- **多格式支援**:
+  - **ODT 轉換**：支援標題階層、文字樣式（粗體、斜體、底線、刪除線）、清單、表格與目錄。
+  - **HTML 轉換**：整合 Turndown 與 GFM，處理 Notion 匯出格式、過濾雜訊標籤並擷取內嵌圖片。
+  - **ZIP 網頁包解壓**：自動讀取 HTML 與圖片資料夾，將 Markdown 圖片路徑轉換為相對目錄。
+  - **缺漏圖片標記**：匯出若缺少圖片，會標記為 `[🖼️ 缺漏圖片: 名稱](Pictures/檔名)`，方便後續補齊。
 
-- **前端記憶體打包與下載**:
-  - **一鍵下載 .md**：直接以 Blob 觸發下載 Markdown 純文字檔。
-  - **一鍵下載 ZIP 包**：在前端記憶體中將 `.md` 與 `Pictures/` 圖片資料夾自動打包成 ZIP 檔下載。
-
-- **瀏覽器本地歷史紀錄 (Local Storage)**:
-  - 自動於瀏覽器 `localStorage` 保存最近 50 筆轉換紀錄，重新整理不遺失，點擊可立即重載檢視。
+- **下載與儲存**:
+  - **下載 .md 檔**：直接儲存 Markdown 純文字檔案。
+  - **打包下載 ZIP**：將 Markdown 與擷取的 `Pictures/` 圖片打包為 ZIP 檔案下載。
+  - **本機歷史紀錄**：在 `localStorage` 保留最近 50 筆轉換紀錄，點選即可重新載入。
 
 ---
 
 ## 支援格式一覽 (Supported Formats)
 
-| 格式 | 副檔名 | 特色與支援項目 |
+| 格式 | 副檔名 | 支援項目 |
 | :--- | :--- | :--- |
-| **ODT** | `.odt` | 大綱標題 (`#`-`######`)、樣式 (`**`, `*`, `~~`, `<u>`, 顏色)、GFM 表格、巢狀清單、目錄 (TOC)、圖片抽取 |
-| **HTML** | `.html`, `.htm` | GFM 表格、清單、Notion 待辦清單 (`- [ ]`)、Base64 圖片抽取、`<style>` / `<script>` 清理 |
-| **ZIP 網頁包** | `.zip` | 包含主 HTML 與 `_files` 圖片資料夾的完整網頁封裝包，自動關聯圖片並轉化為相對路徑 |
-
----
-
-## 技術棧 (Tech Stack)
-
-- **前端核心**：純原生 ES Modules (JavaScript ES2022+)
-- **外掛依賴 (CDN)**：
-  - [JSZip 3.10.1](https://stuk.github.io/jszip/)（純前端 ZIP/ODT 解壓縮與打包）
-  - [Turndown 7.2.0](https://github.com/mixmark-io/turndown) + [turndown-plugin-gfm](https://github.com/mixmark-io/turndown-plugin-gfm)（HTML 轉 Markdown）
-  - [Lucide Icons](https://lucide.dev/)（極簡現代圖標集）
-- **樣式系統**：Vanilla CSS3（HSL Design Tokens、自適應 Grid 佈局、Glassmorphism）
-- **資料儲存**：瀏覽器原生 `localStorage`（歷史紀錄）
+| **ODT** | `.odt` | 大綱標題 (`#`-`######`)、文字樣式、GFM 表格、清單、目錄 (TOC)、圖片擷取 |
+| **HTML** | `.html`, `.htm` | GFM 表格、清單、Notion 待辦清單 (`- [ ]`)、Base64 圖片擷取、清理非必要標籤 |
+| **ZIP 網頁包** | `.zip` | 包含主 HTML 與圖片資料夾的完整網頁封裝包，自動關聯圖片並轉為相對路徑 |
 
 ---
 
 ## 專案結構 (Repository Structure)
 
+遵循 [goldbergyoni/nodebestpractices](https://github.com/goldbergyoni/nodebestpractices) 規範之清晰分層架構（Clean Code）：
+
 ```text
 word2md/
-├── index.html            # 主頁面入口，CDN 引入 JSZip、Turndown 與 Lucide
-├── style.css             # Glassmorphism 設計系統與自適應樣式
-├── js/                   # 純前端 ESM 模組目錄
-│   ├── main.js           # 主控制器 (UI 事件、拖曳上傳、預覽渲染)
-│   ├── zip-handler.js    # JSZip 本地解包與記憶體打包下載
-│   ├── storage.js        # localStorage 歷史紀錄管理器
-│   └── converters/
-│       ├── odt.js        # 原生 DOMParser ODT 轉換模組
-│       └── html.js       # Turndown + Notion HTML 轉換模組
-├── run-convert.js        # 可選的本機 Node.js CLI 工具
-├── package.json          # 開發用輔助配置 (可選)
-└── README.md             # 專案文件
+├── index.html                      # 網頁入口（透過 CDN 載入 JSZip、Turndown 與 Lucide）
+├── assets/                         # 靜態資源目錄
+│   └── css/
+│       └── style.css               # 介面樣式與表格捲動設定
+├── src/                            # 核心原始程式碼 (Source Root)
+│   ├── index.js                    # 應用程式啟動入口
+│   ├── config/                     # 設定常數層
+│   │   ├── app.config.js           # 支援副檔名、檔案大小限制
+│   │   └── storage.config.js       # LocalStorage 鍵值與歷史上限
+│   ├── components/                 # UI 元件層
+│   │   ├── uploader.component.js   # 拖曳與檔案選取元件
+│   │   ├── preview.component.js    # 預覽與下載控制元件
+│   │   ├── history.component.js    # 歷史紀錄列表元件
+│   │   └── toast.component.js      # 通知提示元件
+│   ├── services/                   # 服務層
+│   │   ├── conversion.service.js   # 轉換流程調度
+│   │   ├── storage.service.js      # 歷史紀錄本機儲存
+│   │   └── zip.service.js          # ZIP 解壓縮與打包服務
+│   ├── domain/                     # 核心轉換邏輯層（純邏輯）
+│   │   ├── odt/
+│   │   │   ├── odt-parser.js       # ODT XML 節點解析與轉換
+│   │   │   └── odt-styles.js       # ODT 樣式與標題層級推導
+│   │   └── html/
+│   │       ├── html-parser.js      # HTML 轉換與圖片擷取
+│   │       └── notion-rules.js     # Notion 專用規則（核取方塊、清單、表格）
+│   └── utils/                      # 共用工具函式庫
+│       ├── dom.util.js             # DOM 操作與檔名清理
+│       ├── format.util.js          # 檔案大小與時間格式化
+│       └── markdown-render.util.js # Markdown 轉 HTML 預覽渲染
+├── run-convert.js                  # CLI 轉換指令稿（共用 src/domain 邏輯）
+├── generate-test-odt.js            # 測試用 ODT 檔案產生器
+├── package.json                    # 專案設定檔
+└── README.md                       # 說明文件
 ```
 
 ---
 
 ## 快速開始與部署 (Quick Start & Deployment)
 
-### 部署到 GitHub Pages (推薦)
+### 部署到 GitHub Pages
 
-本專案為**零建置純靜態網站**，直接推送至 GitHub 即可在 1 分鐘內完成部署：
+本專案為純靜態網站，無需建置步驟，推送到 GitHub 即可啟用：
 
-1. 將代碼推送至您的 GitHub 儲存庫：
+1. 將程式碼推送到 GitHub：
    ```bash
    git push origin main
    ```
-2. 前往 GitHub 儲存庫的 **Settings > Pages**。
+2. 進入儲存庫的 **Settings > Pages**。
 3. 在 **Build and deployment > Source** 選擇 **Deploy from a branch**。
-4. Branch 選擇 `main`，資料夾選擇 `/ (root)`，點擊 **Save**。
-5. 等待數十秒，即可透過 `https://<使用者名稱>.github.io/<儲存庫名稱>/` 直接訪問！
+4. 分支選擇 `main`，路徑選擇 `/ (root)`，儲存設定。
+5. 稍候片刻即可透過 `https://<使用者名稱>.github.io/<儲存庫名稱>/` 瀏覽。
 
 ---
 
-### 本機開發與執行 (Local Development)
+### 本機執行 (Local Development)
 
-由於使用了瀏覽器原生 ES Modules，請勿直接以 `file://` 開啟，需透過簡易本機靜態伺服器：
+本專案使用原生 ES Modules，請使用靜態 HTTP 伺服器開啟（不支援直接以 `file://` 開啟）：
 
-#### 方法 A：使用 VS Code Live Server (最簡單)
-1. 在 VS Code 安裝擴充套件「Live Server」。
-2. 對著 `index.html` 按右鍵，選擇 **Open with Live Server**。
-
-#### 方法 B：使用 npm / npx
+#### 使用 npm / npx
 ```bash
 npm run dev
-# 或直接執行
+# 或
 npx serve .
 ```
 
-#### 方法 C：使用 Python
+#### 使用 VS Code Live Server
+在 `index.html` 按右鍵選擇 **Open with Live Server**。
+
+#### 使用 Python
 ```bash
 python -m http.server 8000
 ```
-在瀏覽器打開 `http://localhost:8000` 即可使用。
+開啟瀏覽器前往 `http://localhost:8000` 即可使用。

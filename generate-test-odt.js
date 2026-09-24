@@ -1,7 +1,9 @@
-const fs = require('fs');
-const path = require('path');
-const AdmZip = require('adm-zip');
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import AdmZip from 'adm-zip';
 
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const targetOdtPath = path.join(__dirname, 'test.odt');
 
 console.log('正在產生測試 ODT 檔案...');
@@ -25,7 +27,7 @@ zip.addFile('META-INF/manifest.xml', Buffer.from(manifestXml, 'utf-8'));
 const contentXml = `<?xml version="1.0" encoding="UTF-8"?>
 <office:document-content 
     xmlns:office="urn:oasis:names:tc:opendocument:xmlns:office:1.0" 
-    xmlns:text="urn:oasis:names:tc:opendocument:xmlns:text:1.0"
+    xmlns:text="urn:oasis:names:tc:opendocument:xmlns:text:1.0" 
     xmlns:style="urn:oasis:names:tc:opendocument:xmlns:style:1.0" 
     xmlns:fo="urn:oasis:names:tc:opendocument:xmlns:xsl-fo-compatible:1.0" 
     xmlns:xlink="http://www.w3.org/1999/xlink" 
@@ -40,51 +42,67 @@ const contentXml = `<?xml version="1.0" encoding="UTF-8"?>
     <style:style style:name="T2" style:family="text">
       <style:text-properties fo:font-style="italic"/>
     </style:style>
+    <style:style style:name="T3" style:family="text">
+      <style:text-properties style:text-line-through-style="solid"/>
+    </style:style>
+    <style:style style:name="T4" style:family="text">
+      <style:text-properties style:text-underline-style="solid"/>
+    </style:style>
   </office:automatic-styles>
   <office:body>
     <office:text>
-      <text:h text:outline-level="1">這是大標題 H1</text:h>
-      <text:p>這是一段普通文字，包含了 <text:span text:style-name="T1">粗體文字</text:span> 以及 <text:span text:style-name="T2">斜體文字</text:span>。</text:p>
+      <text:h text:outline-level="1">主標題：測試文件</text:h>
+      <text:p>這是一段一般的段落文字，用來測試基礎排版是否正常。</text:p>
       
-      <text:h text:outline-level="2">這是次標題 H2</text:h>
-      <text:p>這裡是一個列表範例：</text:p>
-      <text:list text:style-name="L1">
-        <text:list-item>
-          <text:p>列表項目一</text:p>
-        </text:list-item>
-        <text:list-item>
-          <text:p>列表項目二，包含 <text:a xlink:href="https://google.com">Google 連結</text:a></text:p>
-        </text:list-item>
+      <text:h text:outline-level="2">次標題：格式化文字測試</text:h>
+      <text:p>
+        這裡包含 <text:span text:style-name="T1">粗體文字</text:span>、
+        <text:span text:style-name="T2">斜體文字</text:span>、
+        <text:span text:style-name="T3">刪除線文字</text:span>，以及
+        <text:span text:style-name="T4">底線文字</text:span>。
+      </text:p>
+
+      <text:h text:outline-level="2">次標題：超連結測試</text:h>
+      <text:p>請造訪我們的官方網站：<text:a xlink:href="https://github.com">GitHub 首頁</text:a>。</text:p>
+
+      <text:h text:outline-level="2">次標題：清單測試</text:h>
+      <text:list>
+        <text:list-item><text:p>無序清單項目 1</text:p></text:list-item>
+        <text:list-item><text:p>無序清單項目 2</text:p></text:list-item>
+        <text:list-item><text:p>無序清單項目 3</text:p></text:list-item>
       </text:list>
-      
-      <text:h text:outline-level="3">表格範例</text:h>
-      <table:table table:name="Table1">
+
+      <text:h text:outline-level="2">次標題：表格測試</text:h>
+      <table:table>
         <table:table-row>
-          <table:table-cell><text:p>標題 1</text:p></table:table-cell>
-          <table:table-cell><text:p>標題 2</text:p></table:table-cell>
+          <table:table-cell><text:p>欄位 1</text:p></table:table-cell>
+          <table:table-cell><text:p>欄位 2</text:p></table:table-cell>
+          <table:table-cell><text:p>欄位 3</text:p></table:table-cell>
         </table:table-row>
         <table:table-row>
-          <table:table-cell><text:p>單元格 A</text:p></table:table-cell>
-          <table:table-cell><text:p>單元格 B</text:p></table:table-cell>
+          <table:table-cell><text:p>資料 A</text:p></table:table-cell>
+          <table:table-cell><text:p>資料 B</text:p></table:table-cell>
+          <table:table-cell><text:p>資料 C</text:p></table:table-cell>
         </table:table-row>
       </table:table>
-      
-      <text:h text:outline-level="3">圖片範例</text:h>
-      <text:p>下面會顯示一張提取出的圖片：</text:p>
-      <draw:frame draw:name="測試圖片" svg:width="10cm" svg:height="5cm">
-        <draw:image xlink:href="Pictures/test.png"/>
-      </draw:frame>
+
+      <text:h text:outline-level="2">次標題：圖片測試</text:h>
+      <text:p>
+        下面應該有一張圖片：
+        <draw:frame svg:width="100pt" svg:height="100pt">
+          <draw:image xlink:href="Pictures/test.png" />
+        </draw:frame>
+      </text:p>
     </office:text>
   </office:body>
 </office:document-content>`;
 zip.addFile('content.xml', Buffer.from(contentXml, 'utf-8'));
 
-// 4. 寫入 1x1 紅色 PNG 圖片
-const redPngBase64 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
-const pngBuffer = Buffer.from(redPngBase64, 'base64');
-zip.addFile('Pictures/', Buffer.alloc(0)); // 建立資料夾
-zip.addFile('Pictures/test.png', pngBuffer);
+// 4. 寫入一張假圖片 (1x1 transparent PNG)
+const dummyPngBase64 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=';
+zip.addFile('Pictures/', Buffer.alloc(0));
+zip.addFile('Pictures/test.png', Buffer.from(dummyPngBase64, 'base64'));
 
-// 寫入實體檔案
+// 5. 輸出 .odt 檔案
 zip.writeZip(targetOdtPath);
-console.log(`測試 ODT 檔案成功產生在：${targetOdtPath}`);
+console.log(`測試檔案產生完成：${targetOdtPath}`);

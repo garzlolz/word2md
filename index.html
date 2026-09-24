@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>word2md - 現代化文檔格式轉換器</title>
+  <title>word2md - 多格式文件轉 Markdown 工具</title>
   <!-- Google Fonts: Outfit for headings, Inter for body -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -19,7 +19,7 @@
   <!-- Lucide Icons -->
   <script src="https://unpkg.com/lucide@latest"></script>
 
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="./assets/css/style.css">
 </head>
 <body>
   <div class="app-container">
@@ -31,7 +31,7 @@
         </div>
         <div class="logo-text">
           <h1>word<span>2md</span></h1>
-          <p>輕量、現代的純前端文檔格式轉換工具</p>
+          <p>在瀏覽器本機將文件轉換為 Markdown</p>
         </div>
       </div>
       <div class="header-actions">
@@ -54,7 +54,7 @@
         <div class="glass-card upload-card">
           <div class="card-header">
             <i data-lucide="upload-cloud"></i>
-            <h2>上傳 ODT / HTML / ZIP 檔案</h2>
+            <h2>上傳文件檔案</h2>
           </div>
           
           <div class="drop-zone" id="drop-zone">
@@ -62,9 +62,9 @@
               <div class="drop-zone-icon">
                 <i data-lucide="file-up"></i>
               </div>
-              <h3>將 .odt, .html 或 .zip 檔案拖曳至此</h3>
-              <p>或點擊此處瀏覽電腦檔案</p>
-              <span class="file-limit">支援本地純前端極速轉換・檔案不外傳</span>
+              <h3>將檔案拖曳至此</h3>
+              <p>支援 .odt、.html、.zip</p>
+              <span class="file-limit">純前端本機解析，檔案不經伺服器</span>
             </div>
             <input type="file" id="file-input" accept=".odt,.html,.htm,.zip" style="display: none;">
           </div>
@@ -117,7 +117,7 @@
               </button>
               <button class="tab-btn" data-tab="raw">
                 <i data-lucide="code"></i>
-                Markdown 源碼
+                Markdown 原始碼
               </button>
             </div>
             
@@ -142,8 +142,8 @@
             <!-- Loading Indicator -->
             <div class="loader-container" id="loader" style="display: none;">
               <div class="spinner"></div>
-              <h3>正在解析文件並轉換...</h3>
-              <p>純前端本地即時解析中</p>
+              <h3>正在轉換文件...</h3>
+              <p>處理中，請稍候</p>
             </div>
 
             <!-- Welcome Screen -->
@@ -151,18 +151,18 @@
               <div class="welcome-illustration">
                 <i data-lucide="refresh-cw" class="spin-slow"></i>
               </div>
-              <h2>準備轉換您的文件</h2>
-              <p>在左側上傳 ODT、HTML 檔案或 ZIP 網頁包，即可在此處即時預覽與編輯產出的 Markdown 內容</p>
+              <h2>尚未選擇文件</h2>
+              <p>請從左側上傳 ODT、HTML 或 ZIP 檔案，轉換後將在此顯示預覽與 Markdown 內容</p>
             </div>
 
             <!-- Output Info Panel (Stats) -->
             <div class="output-info-bar" id="output-info-bar" style="display: none;">
               <div class="info-stat">
-                <span class="stat-label">當前文件</span>
+                <span class="stat-label">目前檔案</span>
                 <span class="stat-value" id="info-path">-</span>
               </div>
               <div class="info-stat">
-                <span class="stat-label">提取圖片數</span>
+                <span class="stat-label">擷取圖片數</span>
                 <span class="stat-value" id="info-images">0 張</span>
               </div>
             </div>
@@ -190,7 +190,7 @@
     <span class="toast-message">提示訊息</span>
   </div>
 
-  <!-- Main Pure Client-Side App Module -->
-  <script type="module" src="./js/main.js"></script>
+  <!-- Main Clean Code ESM Bootstrapper -->
+  <script type="module" src="./src/index.js"></script>
 </body>
 </html>

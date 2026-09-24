@@ -1,65 +1,9 @@
 /**
- * odt.js - 純前端 ODT 檔案轉換模組
- * 依賴瀏覽器原生 DOMParser 與 zip-handler.js
+ * odt-parser.js - 純邏輯 ODT XML DOM 樹走訪與 Markdown 生成器
+ * 依賴純介面 parser，不直接耦合特定運行環境
  */
-import { loadZip, readZipText, readZipBlob } from '../zip-handler.js';
-
-// 清除檔名中不合法的字元
-export function sanitizeFileName(name) {
-  return name.replace(/[\\/:*?"<>|]/g, '_').trim();
-}
-
-function escapeMarkdown(text) {
-  return text
-    // 移除私有區塊字元 (Word/ODT 目錄項目符號等) 與物件取代字元
-    .replace(/[\uE000-\uF8FF\uFFFC]/g, '')
-    .replace(/\\/g, '\\\\')
-    .replace(/\[/g, '\\[')
-    .replace(/\]/g, '\\]');
-}
-
-function parseStyles(doc) {
-  const styles = {};
-  const styleNodes = doc.getElementsByTagName('style:style');
-  for (let i = 0; i < styleNodes.length; i++) {
-    const node = styleNodes[i];
-    const name = node.getAttribute('style:name');
-    const family = node.getAttribute('style:family');
-
-    if (family === 'text' || family === 'paragraph') {
-      const textProps = node.getElementsByTagName('style:text-properties')[0];
-      styles[name] = {
-        bold: textProps ? textProps.getAttribute('fo:font-weight') === 'bold' : false,
-        italic: textProps ? textProps.getAttribute('fo:font-style') === 'italic' : false,
-        underline: textProps ? !!textProps.getAttribute('style:text-underline-style') : false,
-        strike: textProps ? !!textProps.getAttribute('style:text-line-through-style') : false,
-        color: textProps ? textProps.getAttribute('fo:color') : null,
-        parent: node.getAttribute('style:parent-style-name') || null,
-      };
-    }
-  }
-  return styles;
-}
-
-function resolveTocLevel(styleName, styles, templateLevelByStyle) {
-  let name = styleName;
-  let depth = 0;
-  while (name && depth < 10) {
-    if (templateLevelByStyle[name]) return templateLevelByStyle[name];
-    name = styles[name] ? styles[name].parent : null;
-    depth++;
-  }
-  return 1;
-}
-
-function applyParagraphColor(node, styles, content) {
-  if (!content || !content.trim()) return content;
-  const style = styles[node.getAttribute('text:style-name')];
-  if (style && style.color && style.color.toUpperCase() !== '#000000') {
-    return `<span style="color:${style.color}">${content}</span>`;
-  }
-  return content;
-}
+import { escapeMarkdown } from '../../utils/dom.util.js';
+import { parseOdtStyles, resolveTocLevel, applyParagraphColor } from './odt-styles.js';
 
 function isInsideHeader(node) {
   let parent = node.parentNode;
@@ -94,7 +38,6 @@ function convertElement(node, styles, imageMap, listState = { level: 0, ordered:
         const content = convertChildren(node, styles, imageMap);
         if (!content.trim()) return '';
 
-        // 如果在標題或清單內，直接返回內容
         if (isInsideHeader(node)) {
           return content;
         }
@@ -168,27 +111,17 @@ function convertElement(node, styles, imageMap, listState = { level: 0, ordered:
         return parseTable(node, styles, imageMap);
       }
 
-      case 'draw:frame': {
-        const imageNode = node.getElementsByTagName('draw:image')[0];
-        if (imageNode) {
-          const href = imageNode.getAttribute('xlink:href');
+      case 'draw:frame':
+      case 'draw:image': {
+        const img = tagName === 'draw:frame' ? node.getElementsByTagName('draw:image')[0] : node;
+        if (img) {
+          const href = img.getAttribute('xlink:href');
           if (href) {
             const imageFileName = href.split('/').pop();
             const normalizedHref = href.startsWith('/') ? href.slice(1) : href;
             imageMap[normalizedHref] = imageFileName;
             return `![${imageFileName}](Pictures/${imageFileName})`;
           }
-        }
-        return '';
-      }
-
-      case 'draw:image': {
-        const href = node.getAttribute('xlink:href');
-        if (href) {
-          const imageFileName = href.split('/').pop();
-          const normalizedHref = href.startsWith('/') ? href.slice(1) : href;
-          imageMap[normalizedHref] = imageFileName;
-          return `![${imageFileName}](Pictures/${imageFileName})`;
         }
         return '';
       }
@@ -233,7 +166,6 @@ function convertElement(node, styles, imageMap, listState = { level: 0, ordered:
               itemText = convertChildren(child, styles, imageMap).trim();
             }
 
-            // 清理頁碼與定位點點
             itemText = itemText.replace(/\t+/g, ' ').replace(/\s+\d+\s*$/, '').trim();
 
             if (itemText) {
@@ -311,44 +243,24 @@ function parseTable(tableNode, styles, imageMap) {
 }
 
 /**
- * 核心：純前端解析 ODT 檔案
- * @param {File|Blob} file 
- * @returns {Promise<{markdown: string, images: Array<{fileName: string, blob: Blob, dataUrl?: string}>}>}
+ * 純邏輯：傳入 XML 字串與 DOMParser 執行個體進行解析
+ * @param {string} contentXml 
+ * @param {DOMParser} [parserInstance] 
+ * @returns {{markdown: string, imageMap: Record<string, string>}}
  */
-export async function convertOdt(file) {
-  const zip = await loadZip(file);
-  const contentXml = await readZipText(zip, 'content.xml');
+export function parseOdtXml(contentXml, parserInstance = null) {
+  const parser = parserInstance || (typeof DOMParser !== 'undefined' ? new DOMParser() : null);
+  if (!parser) {
+    throw new Error('未提供 DOMParser 實例且當前環境無全域 DOMParser');
+  }
 
-  const parser = new DOMParser();
   const doc = parser.parseFromString(contentXml, 'text/xml');
-
-  const styles = parseStyles(doc);
+  const styles = parseOdtStyles(doc);
   const imageMap = {};
 
   const bodyNode = doc.getElementsByTagName('office:body')[0];
   let markdown = convertChildren(bodyNode, styles, imageMap);
   markdown = markdown.replace(/\n{3,}/g, '\n\n').trim();
 
-  // 提取圖片
-  const imageKeys = Object.keys(imageMap);
-  const images = [];
-
-  for (const imagePath of imageKeys) {
-    try {
-      const blob = await readZipBlob(zip, imagePath);
-      const fileName = imageMap[imagePath] || imagePath.split('/').pop();
-      images.push({
-        fileName: fileName,
-        blob: blob,
-        objectUrl: URL.createObjectURL(blob)
-      });
-    } catch (e) {
-      console.warn(`ODT 圖片提取跳過：${imagePath}`, e);
-    }
-  }
-
-  return {
-    markdown,
-    images
-  };
+  return { markdown, imageMap };
 }
