@@ -15,6 +15,10 @@
   "description": "Pure client-side multi-format document-to-Markdown converter",
   "devDependencies": {
     "@xmldom/xmldom": "^0.9.10",
-    "adm-zip": "^0.6.0"
+    "adm-zip": "^0.6.0",
+    "jsdom": "^29.1.1",
+    "mammoth": "^1.12.3",
+    "turndown": "^7.2.4",
+    "turndown-plugin-gfm": "^1.0.2"
   }
 }

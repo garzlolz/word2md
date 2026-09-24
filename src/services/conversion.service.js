@@ -1,12 +1,13 @@
 /**
  * conversion.service.js - 文件轉換調度服務
- * 整合 ODT、HTML、ZIP 領域解析器並處理圖片二進位流
+ * 整合 ODT、HTML、ZIP、DOCX 領域解析器並處理圖片二進位流
  */
 import { APP_CONFIG } from '../config/app.config.js';
 import { sanitizeFileName } from '../utils/dom.util.js';
 import { ZipService } from './zip.service.js';
 import { parseOdtXml } from '../domain/odt/odt-parser.js';
 import { parseHtmlContent } from '../domain/html/html-parser.js';
+import { parseDocx } from '../domain/docx/docx-parser.js';
 
 export class ConversionService {
   /**
@@ -45,7 +46,9 @@ export class ConversionService {
 
     let result = null;
 
-    if (lowerName.endsWith('.odt')) {
+    if (lowerName.endsWith('.docx')) {
+      result = await this.convertDocx(file);
+    } else if (lowerName.endsWith('.odt')) {
       result = await this.convertOdt(file);
     } else if (lowerName.endsWith('.zip')) {
       result = await this.convertZipWebPackage(file);
@@ -59,6 +62,14 @@ export class ConversionService {
       markdown: result.markdown,
       images: result.images || []
     };
+  }
+
+  /**
+   * 轉換 DOCX
+   */
+  static async convertDocx(file) {
+    const arrayBuffer = await file.arrayBuffer();
+    return parseDocx(arrayBuffer);
   }
 
   /**

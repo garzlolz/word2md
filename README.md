@@ -23,6 +23,7 @@
   - **待辦清單 (GFM Task List)**：支援轉換待辦核取方塊與完成線。
 
 - **多格式支援**:
+  - **DOCX 轉換**：使用 Mammoth.js 進行語意轉換，支援標題階層、粗體斜體、清單、表格與內嵌圖片擷取。
   - **ODT 轉換**：支援標題階層、文字樣式（粗體、斜體、底線、刪除線）、清單、表格與目錄。
   - **HTML 轉換**：整合 Turndown 與 GFM，處理 Notion 匯出格式、過濾雜訊標籤並擷取內嵌圖片。
   - **ZIP 網頁包解壓**：自動讀取 HTML 與圖片資料夾，將 Markdown 圖片路徑轉換為相對目錄。
@@ -39,6 +40,7 @@
 
 | 格式 | 副檔名 | 支援項目 |
 | :--- | :--- | :--- |
+| **DOCX** | `.docx` | 大綱標題 (`#`-`######`)、文字樣式、GFM 表格、巢狀清單、圖片擷取 |
 | **ODT** | `.odt` | 大綱標題 (`#`-`######`)、文字樣式、GFM 表格、清單、目錄 (TOC)、圖片擷取 |
 | **HTML** | `.html`, `.htm` | GFM 表格、清單、Notion 待辦清單 (`- [ ]`)、Base64 圖片擷取、清理非必要標籤 |
 | **ZIP 網頁包** | `.zip` | 包含主 HTML 與圖片資料夾的完整網頁封裝包，自動關聯圖片並轉為相對路徑 |
@@ -51,7 +53,7 @@
 
 ```text
 word2md/
-├── index.html                      # 網頁入口（透過 CDN 載入 JSZip、Turndown 與 Lucide）
+├── index.html                      # 網頁入口（透過 CDN 載入 JSZip、Mammoth、Turndown 與 Lucide）
 ├── assets/                         # 靜態資源目錄
 │   └── css/
 │       └── style.css               # 介面樣式與表格捲動設定
@@ -70,17 +72,20 @@ word2md/
 │   │   ├── storage.service.js      # 歷史紀錄本機儲存
 │   │   └── zip.service.js          # ZIP 解壓縮與打包服務
 │   ├── domain/                     # 核心轉換邏輯層（純邏輯）
+│   │   ├── docx/
+│   │   │   └── docx-parser.js      # DOCX 語意轉換與圖片擷取
 │   │   ├── odt/
 │   │   │   ├── odt-parser.js       # ODT XML 節點解析與轉換
 │   │   │   └── odt-styles.js       # ODT 樣式與標題層級推導
 │   │   └── html/
 │   │       ├── html-parser.js      # HTML 轉換與圖片擷取
-│   │       └── notion-rules.js     # Notion 專用規則（核取方塊、清單、表格）
+│   │       └── notion-rules.js     # Notion 專用規則與表格段落緊湊化
 │   └── utils/                      # 共用工具函式庫
 │       ├── dom.util.js             # DOM 操作與檔名清理
 │       ├── format.util.js          # 檔案大小與時間格式化
 │       └── markdown-render.util.js # Markdown 轉 HTML 預覽渲染
-├── run-convert.js                  # CLI 轉換指令稿（共用 src/domain 邏輯）
+├── run-convert.js                  # CLI 轉換指令稿（支援 DOCX 與 ODT，共用 domain 邏輯）
+├── generate-test-docx.js           # 測試用 DOCX 檔案產生器
 ├── generate-test-odt.js            # 測試用 ODT 檔案產生器
 ├── package.json                    # 專案設定檔
 └── README.md                       # 說明文件

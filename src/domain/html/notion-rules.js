@@ -69,8 +69,24 @@ export function preprocessNotionDom(doc) {
     }
   });
 
-  // 4. Notion 表格標題列正規化
+  // 4. 表格標題列正規化與單元格內容緊湊化
   doc.querySelectorAll('table').forEach(table => {
+    // 解套單元格內部的段落標籤，避免 Turndown 產生內部換行破壞 GFM 表格結構
+    table.querySelectorAll('th, td').forEach(cell => {
+      const paragraphs = Array.from(cell.querySelectorAll('p'));
+      if (paragraphs.length > 0) {
+        paragraphs.forEach((p, idx) => {
+          if (idx > 0) {
+            cell.insertBefore(doc.createElement('br'), p);
+          }
+          while (p.firstChild) {
+            cell.insertBefore(p.firstChild, p);
+          }
+          p.remove();
+        });
+      }
+    });
+
     const rows = Array.from(table.querySelectorAll('tr'));
     if (rows.length > 0 && !table.querySelector('thead')) {
       const firstRow = rows[0];

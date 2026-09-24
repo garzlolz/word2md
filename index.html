@@ -16,6 +16,9 @@
   <script src="https://unpkg.com/turndown/dist/turndown.js"></script>
   <script src="https://unpkg.com/turndown-plugin-gfm/dist/turndown-plugin-gfm.js"></script>
 
+  <!-- Mammoth.js (for Client-side DOCX to HTML) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.8.0/mammoth.browser.min.js"></script>
+
   <!-- Lucide Icons -->
   <script src="https://unpkg.com/lucide@latest"></script>
 
@@ -63,10 +66,10 @@
                 <i data-lucide="file-up"></i>
               </div>
               <h3>將檔案拖曳至此</h3>
-              <p>支援 .odt、.html、.zip</p>
+              <p>支援 .docx、.odt、.html、.zip</p>
               <span class="file-limit">純前端本機解析，檔案不經伺服器</span>
             </div>
-            <input type="file" id="file-input" accept=".odt,.html,.htm,.zip" style="display: none;">
+            <input type="file" id="file-input" accept=".docx,.odt,.html,.htm,.zip" style="display: none;">
           </div>
 
           <div class="selected-file-info" id="selected-file-info" style="display: none;">
@@ -152,7 +155,7 @@
                 <i data-lucide="refresh-cw" class="spin-slow"></i>
               </div>
               <h2>尚未選擇文件</h2>
-              <p>請從左側上傳 ODT、HTML 或 ZIP 檔案，轉換後將在此顯示預覽與 Markdown 內容</p>
+              <p>請從左側上傳 DOCX、ODT、HTML 或 ZIP 檔案，轉換後將在此顯示預覽與 Markdown 內容</p>
             </div>
 
             <!-- Output Info Panel (Stats) -->
