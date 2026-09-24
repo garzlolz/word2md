@@ -110,14 +110,13 @@ dropZone.addEventListener('drop', (e) => {
 function handleFileSelect(file) {
   if (!file) return;
   
-  // 檢查是否為 .odt, .pdf, .html, .htm 或 .zip 檔
+  // 檢查是否為 .odt, .html, .htm 或 .zip 檔
   const fileNameLower = file.name.toLowerCase();
   const isOdt = fileNameLower.endsWith('.odt');
-  const isPdf = fileNameLower.endsWith('.pdf');
   const isHtml = fileNameLower.endsWith('.html') || fileNameLower.endsWith('.htm');
   const isZip = fileNameLower.endsWith('.zip');
-  if (!isOdt && !isPdf && !isHtml && !isZip) {
-    showToast('請上傳 .odt, .pdf, .html 或 .zip 格式的檔案', true);
+  if (!isOdt && !isHtml && !isZip) {
+    showToast('請上傳 .odt, .html 或 .zip 格式的檔案', true);
     return;
   }
   
@@ -498,10 +497,10 @@ function renderMarkdown(md) {
       .replace(/\[(.*?)\]\((.*?)\)/g, '<a href="$2" target="_blank">$1</a>');
   }
 
-  // 生成表格 HTML 輔助函數
+  // 生成表格 HTML 輔助函數 (外層包裹 table-container 支援獨立水平滾動)
   function generateTableHtml(rows) {
     if (rows.length === 0) return '';
-    let tHtml = '<table>';
+    let tHtml = '<div class="table-container"><table>';
     // 標題列
     tHtml += '<thead><tr>' + rows[0].map(c => `<th>${parseInlineElements(c)}</th>`).join('') + '</tr></thead>';
     // 內容列
@@ -512,7 +511,7 @@ function renderMarkdown(md) {
       }
       tHtml += '</tbody>';
     }
-    tHtml += '</table>';
+    tHtml += '</table></div>';
     return tHtml;
   }
 
@@ -523,7 +522,15 @@ function renderMarkdown(md) {
     if (!trimmed) return '';
 
     // 如果是 HTML 標籤就不需要 wrap 成 <p>
-    if (trimmed.startsWith('<h') || trimmed.startsWith('</h') || trimmed.startsWith('<table') || trimmed.startsWith('</table') || trimmed.startsWith('<tr') || trimmed.startsWith('</tr') || trimmed.startsWith('<td') || trimmed.startsWith('<th') || trimmed.startsWith('<thead') || trimmed.startsWith('<tbody') || trimmed.startsWith('<u>') || trimmed.startsWith('<img>')) {
+    if (
+      trimmed.startsWith('<h') || trimmed.startsWith('</h') ||
+      trimmed.startsWith('<div') || trimmed.startsWith('</div') ||
+      trimmed.startsWith('<table') || trimmed.startsWith('</table') ||
+      trimmed.startsWith('<tr') || trimmed.startsWith('</tr') ||
+      trimmed.startsWith('<td') || trimmed.startsWith('<th') ||
+      trimmed.startsWith('<thead') || trimmed.startsWith('<tbody') ||
+      trimmed.startsWith('<u>') || trimmed.startsWith('<img>')
+    ) {
       return line;
     }
 

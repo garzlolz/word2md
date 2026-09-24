@@ -4,7 +4,7 @@
 [![Node.js Version](https://img.shields.io/badge/node-%3E%3D18.0.0-brightgreen.svg)](https://nodejs.org/)
 [![Framework](https://img.shields.io/badge/Express-5.x-darkgreen.svg)](https://expressjs.com/)
 
-**word2md** is a fast, lightweight, and modern multi-format document-to-Markdown converter. It seamlessly transforms **ODT (OpenDocument Text)**, **PDF**, and **HTML** files into structured Markdown documents, automatically extracting embedded images and organizing output into timestamped folders.
+**word2md** is a fast, lightweight, and modern document-to-Markdown converter. It seamlessly transforms **ODT (OpenDocument Text)**, **HTML**, and **ZIP web archives** into structured Markdown documents, automatically extracting embedded images and organizing output into timestamped folders.
 
 ---
 
@@ -18,8 +18,8 @@
 
 - **Multi-Format Processing**:
   - **ODT Converter**: Parses XML structure, inline styles (bold, italic, strikethrough, underline), nested lists, GFM tables, and extracts embedded document images.
-  - **PDF Parser**: Automatically detects font scaling and spatial positioning to reconstruct headings and paragraph hierarchy.
-  - **HTML Engine**: Utilizes Turndown with GFM extensions to convert web pages, cleans unwanted `<script>` and `<style>` blocks, and decodes Base64 embedded images.
+  - **HTML Engine**: Utilizes Turndown with GFM extensions to convert web pages (such as Notion exports), cleans unwanted `<script>` and `<style>` blocks, and decodes Base64 embedded images.
+  - **ZIP Web Archive Support**: Automatically unpacks HTML web exports and associated resource folders, parsing the primary HTML document and extracting all local images into `Pictures/`.
 
 - **Automated Image Extraction**:
   - Automatically extracts all embedded images and Base64 Data URLs into an isolated `Pictures/` subdirectory within the output folder.
@@ -39,7 +39,6 @@
 | Format | File Extensions | Features & Capabilities |
 | :--- | :--- | :--- |
 | **ODT** | `.odt` | Headings (`#`-`######`), bold (`**`), italic (`*`), strikethrough (`~~`), underline (`<u>`), GFM tables, nested lists, image zip extraction |
-| **PDF** | `.pdf` | Font hierarchy detection, heading levels, structured text paragraphs |
 | **HTML** | `.html`, `.htm` | GFM tables, lists, Base64 image extraction & decoding, `<style>` / `<script>` filtering |
 | **ZIP Package** | `.zip` | Full web page archives (containing `.html` and `_files` image resource directories), automatic HTML parsing & relative image extraction |
 
@@ -47,7 +46,7 @@
 
 ## Tech Stack
 
-- **Backend**: Node.js, Express 5, Multer, Adm-Zip, `@xmldom/xmldom`, `@opendocsg/pdf2md`, Turndown, `turndown-plugin-gfm`
+- **Backend**: Node.js, Express 5, Multer, Adm-Zip, `@xmldom/xmldom`, Turndown, `turndown-plugin-gfm`
 - **Frontend**: Vanilla HTML5, Vanilla CSS3 (HSL Design System), ES6+ JavaScript, Lucide Icons, Google Fonts (Outfit & Inter)
 
 ---

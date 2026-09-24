@@ -2,7 +2,6 @@ const express = require('express');
 const multer = require('multer');
 const AdmZip = require('adm-zip');
 const { DOMParser } = require('@xmldom/xmldom');
-const pdf2md = require('@opendocsg/pdf2md');
 const TurndownService = require('turndown');
 const { highlightedCodeBlock, strikethrough, taskListItems } = require('turndown-plugin-gfm');
 const fs = require('fs');
@@ -757,7 +756,7 @@ function cleanNavigationNoise(markdownText) {
   return resultLines.join('\n');
 }
 
-// 核心轉換 API (支援 ODT, PDF, HTML 及 ZIP 網頁包)
+// 核心轉換 API (支援 ODT, HTML 及 ZIP 網頁包)
 app.post('/api/convert', upload.single('file'), async (req, res) => {
   try {
     if (!req.file) {
@@ -770,8 +769,13 @@ app.post('/api/convert', upload.single('file'), async (req, res) => {
     const baseName = path.parse(originalName).name;
     const fileBuffer = req.file.buffer;
     const ext = path.extname(originalName).toLowerCase();
-    const isPdf = ext === '.pdf';
     const isHtml = ext === '.html' || ext === '.htm';
+    const isZipOrOdt = ext === '.odt' || ext === '.zip';
+
+    // 格式白名單過濾
+    if (!isHtml && !isZipOrOdt) {
+      return res.status(400).json({ error: '不支援的檔案格式：僅支援 ODT (.odt)、HTML (.html, .htm) 及 ZIP (.zip) 網頁包' });
+    }
 
     // 建立輸出目錄：時間戳_檔案名稱
     const outputFolderName = `${getTimestampFolder()}_${sanitizeFileName(baseName)}`;
@@ -781,13 +785,7 @@ app.post('/api/convert', upload.single('file'), async (req, res) => {
     let markdown = '';
     let extractedImages = [];
 
-    if (isPdf) {
-      try {
-        markdown = await pdf2md(fileBuffer);
-      } catch (e) {
-        return res.status(400).json({ error: '解析 PDF 檔案失敗：' + e.message });
-      }
-    } else if (isHtml) {
+    if (isHtml) {
       try {
         const htmlContent = fileBuffer.toString('utf8');
         const converted = convertHtmlContent(htmlContent, runOutputDir);

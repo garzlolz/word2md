@@ -41,7 +41,7 @@ body {
   min-height: 100vh;
   display: flex;
   justify-content: center;
-  overflow-x: hidden;
+  overflow-x: auto;
   -webkit-font-smoothing: antialiased;
 }
 
@@ -168,14 +168,16 @@ body {
 /* App Main Layout */
 .app-content {
   display: grid;
-  grid-template-columns: 350px 1fr;
+  grid-template-columns: 350px minmax(0, 1fr);
   gap: 1.5rem;
   flex: 1;
+  min-width: 0;
+  width: 100%;
 }
 
 @media (max-width: 1024px) {
   .app-content {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 
@@ -562,6 +564,8 @@ body {
 .main-panel {
   display: flex;
   flex-direction: column;
+  min-width: 0;
+  width: 100%;
 }
 
 .preview-card {
@@ -571,20 +575,27 @@ body {
   flex-direction: column;
   padding: 0; /* 控制 bar 與內文要分明 */
   overflow: hidden;
+  min-width: 0;
+  width: 100%;
 }
 
 .preview-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  flex-wrap: wrap;
+  gap: 0.75rem;
   padding: 1rem 1.5rem;
   background: rgba(0, 0, 0, 0.15);
   border-bottom: 1px solid var(--border-color);
+  min-width: 0;
+  width: 100%;
 }
 
 .preview-tabs {
   display: flex;
   gap: 0.5rem;
+  flex-wrap: wrap;
 }
 
 .tab-btn {
@@ -621,7 +632,9 @@ body {
 
 .preview-actions {
   display: flex;
-  gap: 0.75rem;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
 }
 
 .preview-body {
@@ -631,6 +644,9 @@ body {
   flex-direction: column;
   padding: 1.5rem;
   overflow-y: auto;
+  overflow-x: hidden;
+  min-width: 0;
+  width: 100%;
 }
 
 /* Welcome & Loader */
@@ -740,11 +756,15 @@ body {
   display: flex;
   flex-direction: column;
   min-height: 350px;
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
 }
 
 /* Raw Markdown styling */
 .markdown-raw {
   width: 100%;
+  max-width: 100%;
   flex: 1;
   background: rgba(0, 0, 0, 0.2);
   border: 1px solid var(--border-color);
@@ -768,6 +788,10 @@ body {
   line-height: 1.7;
   color: var(--text-light);
   overflow-wrap: break-word;
+  word-break: break-word;
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
 }
 
 /* Custom Markdown styling rules */
@@ -886,29 +910,119 @@ body {
   opacity: 0.55;
 }
 
+/* 表格獨立水平滾動容器 (徹底解決 PRD 寬表格將版面撐開問題) */
+.table-container {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+  margin-bottom: 1.25rem;
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+  background: rgba(0, 0, 0, 0.15);
+  -webkit-overflow-scrolling: touch;
+}
+
+/* 清晰顯眼的自訂水平滾動條 */
+.table-container::-webkit-scrollbar {
+  height: 9px;
+}
+
+.table-container::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 4px;
+}
+
+.table-container::-webkit-scrollbar-thumb {
+  background: hsla(224, 25%, 40%, 0.8);
+  border-radius: 4px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+.table-container::-webkit-scrollbar-thumb:hover {
+  background: var(--primary-color);
+}
+
 .markdown-body table {
   border-collapse: collapse;
   width: 100%;
-  margin-bottom: 1rem;
-  background: rgba(0, 0, 0, 0.1);
+  min-width: 650px; /* 保證多欄位內容不會過度擠壓變形，由外層滾動條承接 */
+  margin-bottom: 0;
+}
+
+/* 備援：若表格未被 table-container 包裹時的自帶滾動支援 */
+.markdown-body > table {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+  margin-bottom: 1.25rem;
   border-radius: 8px;
-  overflow: hidden;
+  border: 1px solid var(--border-color);
+  background: rgba(0, 0, 0, 0.15);
+  -webkit-overflow-scrolling: touch;
+}
+
+.markdown-body > table::-webkit-scrollbar {
+  height: 9px;
+}
+
+.markdown-body > table::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 4px;
+}
+
+.markdown-body > table::-webkit-scrollbar-thumb {
+  background: hsla(224, 25%, 40%, 0.8);
+  border-radius: 4px;
+}
+
+.markdown-body > table::-webkit-scrollbar-thumb:hover {
+  background: var(--primary-color);
 }
 
 .markdown-body th, .markdown-body td {
   padding: 0.75rem 1rem;
   border: 1px solid var(--border-color);
   text-align: left;
+  min-width: 110px;
+  word-break: break-word;
 }
 
 .markdown-body th {
-  background: rgba(255, 255, 255, 0.03);
+  background: rgba(255, 255, 255, 0.04);
   font-weight: 600;
   color: var(--text-white);
+  white-space: nowrap; /* 表頭文字維持單行不折行，更顯清晰專業 */
 }
 
 .markdown-body tr:nth-child(even) {
-  background: rgba(255, 255, 255, 0.01);
+  background: rgba(255, 255, 255, 0.015);
+}
+
+/* 程式碼區塊橫向滾動防護 */
+.markdown-body pre {
+  max-width: 100%;
+  overflow-x: auto;
+  background: rgba(0, 0, 0, 0.25);
+  padding: 1rem;
+  border-radius: var(--border-radius-md);
+  margin-bottom: 1rem;
+  border: 1px solid var(--border-color);
+}
+
+.markdown-body pre::-webkit-scrollbar {
+  height: 8px;
+}
+
+.markdown-body pre::-webkit-scrollbar-thumb {
+  background: hsla(224, 25%, 40%, 0.7);
+  border-radius: 4px;
+}
+
+.markdown-body pre code {
+  white-space: pre;
+  word-break: normal;
 }
 
 /* Toast Notification */
