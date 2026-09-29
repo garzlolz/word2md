@@ -79,6 +79,7 @@ word2md/
 │   │   │   └── odt-styles.js       # ODT 樣式與標題層級推導
 │   │   └── html/
 │   │       ├── html-parser.js      # HTML 轉換與圖片擷取
+│   │       ├── table-converter.js  # 強固型表格轉 GFM 演算法 (跨欄/換行/對齊)
 │   │       └── notion-rules.js     # Notion 專用規則與表格段落緊湊化
 │   └── utils/                      # 共用工具函式庫
 │       ├── dom.util.js             # DOM 操作與檔名清理

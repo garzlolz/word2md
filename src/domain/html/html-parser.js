@@ -2,6 +2,7 @@
  * html-parser.js - HTML 與 Notion 轉 Markdown 核心轉換器
  */
 import { cleanNavigationNoise, preprocessNotionDom } from './notion-rules.js';
+import { convertTableNodeToGfm } from './table-converter.js';
 
 // Base64 Data URL 轉為 Blob 物件
 export function dataUrlToBlob(dataurl) {
@@ -38,6 +39,14 @@ export function createTurndownInstance(TurndownClass = null, gfmPlugin = null) {
   if (gfm) {
     service.use(gfm);
   }
+
+  // 強固型表格規則：覆蓋 GFM 脆弱實作，解決 colspan、單元格換行/清單、管道符號與矩陣長短不齊破版
+  service.addRule('robustTable', {
+    filter: 'table',
+    replacement: function (content, node) {
+      return convertTableNodeToGfm(node, service);
+    }
+  });
 
   // 底線規則
   service.addRule('underline', {
