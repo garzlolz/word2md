@@ -3,6 +3,7 @@
  */
 import { cleanNavigationNoise, preprocessNotionDom } from './notion-rules.js';
 import { convertTableNodeToGfm } from './table-converter.js';
+import { normalizeMarkdown } from '../../utils/format.util.js';
 
 // Base64 Data URL 轉為 Blob 物件
 export function dataUrlToBlob(dataurl) {
@@ -158,9 +159,9 @@ export function parseHtmlContent(htmlContent, localImagesMap = new Map(), option
   const turndown = createTurndownInstance(options.turndownClass, options.gfmPlugin);
   let markdown = turndown.turndown(doc.body.innerHTML);
 
-  // 4. 後處理清理
+  // 4. 後處理清理與排版標準化
   markdown = cleanNavigationNoise(markdown);
-  markdown = markdown.replace(/\n{3,}/g, '\n\n').trim();
+  markdown = normalizeMarkdown(markdown);
 
   return {
     markdown,

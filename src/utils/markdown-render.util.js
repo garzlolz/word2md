@@ -26,7 +26,8 @@ export function renderMarkdownPreview(markdown, images = []) {
 
   function parseInline(text) {
     return escapeHtml(text)
-      // 復原安全的 HTML 標籤
+      // 復原安全的 HTML 標籤 (包含單元格換行與樣式)
+      .replace(/&lt;br\s*\/?&gt;/gi, '<br>')
       .replace(/&lt;u&gt;(.*?)&lt;\/u&gt;/g, '<u>$1</u>')
       .replace(/&lt;span style="(.*?)"&gt;(.*?)&lt;\/span&gt;/g, '<span style="$1">$2</span>')
       // 缺漏圖片標記高亮
@@ -49,21 +50,60 @@ export function renderMarkdownPreview(markdown, images = []) {
       .replace(/\[(.*?)\]\((.*?)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
   }
 
+  let tableAligns = [];
+
   function flushTable() {
     if (tableRows.length === 0) return '';
     let tHtml = '<div class="table-container"><table>';
-    tHtml += '<thead><tr>' + tableRows[0].map(c => `<th>${parseInline(c)}</th>`).join('') + '</tr></thead>';
+    tHtml += '<thead><tr>' + tableRows[0].map((c, idx) => {
+      const align = tableAligns[idx] ? ` style="text-align: ${tableAligns[idx]}"` : '';
+      return `<th${align}>${parseInline(c)}</th>`;
+    }).join('') + '</tr></thead>';
     if (tableRows.length > 1) {
       tHtml += '<tbody>';
       for (let i = 1; i < tableRows.length; i++) {
-        tHtml += '<tr>' + tableRows[i].map(c => `<td>${parseInline(c)}</td>`).join('') + '</tr>';
+        tHtml += '<tr>' + tableRows[i].map((c, idx) => {
+          const align = tableAligns[idx] ? ` style="text-align: ${tableAligns[idx]}"` : '';
+          return `<td${align}>${parseInline(c)}</td>`;
+        }).join('') + '</tr>';
       }
       tHtml += '</tbody>';
     }
     tHtml += '</table></div>';
     tableRows = [];
+    tableAligns = [];
     inTable = false;
     return tHtml;
+  }
+
+  let inQuote = false;
+  let quoteLines = [];
+  let currentCodeLang = '';
+
+  function flushQuote() {
+    if (quoteLines.length === 0) return '';
+    const firstLine = quoteLines[0].trim();
+    const alertMatch = firstLine.match(/^\[!(NOTE|TIP|IMPORTANT|WARNING|CAUTION)\]$/i);
+    let qHtml = '';
+    if (alertMatch) {
+      const alertType = alertMatch[1].toLowerCase();
+      const titleMap = {
+        note: 'Note',
+        tip: 'Tip',
+        important: 'Important',
+        warning: 'Warning',
+        caution: 'Caution'
+      };
+      const alertTitle = titleMap[alertType] || alertType.toUpperCase();
+      const bodyLines = quoteLines.slice(1).map(l => `<p>${parseInline(l)}</p>`).join('');
+      qHtml = `<div class="callout callout-${alertType}"><div class="callout-title"><strong>${alertTitle}</strong></div><div class="callout-body">${bodyLines || ''}</div></div>`;
+    } else {
+      const bodyHtml = quoteLines.map(l => parseInline(l)).join('<br>');
+      qHtml = `<blockquote><p>${bodyHtml}</p></blockquote>`;
+    }
+    quoteLines = [];
+    inQuote = false;
+    return qHtml;
   }
 
   for (let i = 0; i < lines.length; i++) {
@@ -71,14 +111,19 @@ export function renderMarkdownPreview(markdown, images = []) {
     const trimmed = line.trim();
 
     // 程式碼區塊
-    if (trimmed.startsWith('```')) {
+    const codeFenceMatch = trimmed.match(/^```([a-zA-Z0-9_\-\+]*)/);
+    if (codeFenceMatch) {
       if (inCodeBlock) {
-        htmlOut.push(`<pre><code>${codeBlockBuffer.join('\n')}</code></pre>`);
+        const langBadge = currentCodeLang ? `<span class="code-lang-badge">${currentCodeLang}</span>` : '';
+        htmlOut.push(`<div class="code-block-wrapper">${langBadge}<pre><code class="language-${currentCodeLang || 'text'}">${codeBlockBuffer.join('\n')}</code></pre></div>`);
         codeBlockBuffer = [];
+        currentCodeLang = '';
         inCodeBlock = false;
       } else {
         if (inTable) htmlOut.push(flushTable());
+        if (inQuote) htmlOut.push(flushQuote());
         inCodeBlock = true;
+        currentCodeLang = codeFenceMatch[1] || '';
       }
       continue;
     }
@@ -90,8 +135,15 @@ export function renderMarkdownPreview(markdown, images = []) {
 
     // 表格列
     if (trimmed.startsWith('|') && trimmed.endsWith('|')) {
+      if (inQuote) htmlOut.push(flushQuote());
       const cells = line.split('|').slice(1, -1).map(c => c.trim());
       if (cells.every(c => /^:?-+:?$/.test(c))) {
+        // 解析各欄對齊方式
+        tableAligns = cells.map(c => {
+          if (c.startsWith(':') && c.endsWith(':')) return 'center';
+          if (c.endsWith(':')) return 'right';
+          return 'left';
+        });
         continue;
       }
       inTable = true;
@@ -99,6 +151,16 @@ export function renderMarkdownPreview(markdown, images = []) {
       continue;
     } else if (inTable) {
       htmlOut.push(flushTable());
+    }
+
+    // 引用區塊 (Blockquote / GitHub Alert)
+    const quoteMatch = line.match(/^>\s?(.*)$/);
+    if (quoteMatch) {
+      inQuote = true;
+      quoteLines.push(quoteMatch[1]);
+      continue;
+    } else if (inQuote) {
+      htmlOut.push(flushQuote());
     }
 
     if (!trimmed) continue;
@@ -111,19 +173,25 @@ export function renderMarkdownPreview(markdown, images = []) {
       continue;
     }
 
-    // GFM 待辦清單 Checkbox
+    // GFM 待辦清單 Checkbox (支援階層縮排)
     const taskMatch = line.match(/^(\s*)[-*+]\s+\[([ xX])\]\s+(.*)$/);
     if (taskMatch) {
+      const indentLevel = Math.floor(taskMatch[1].length / 2);
       const isChecked = taskMatch[2].toLowerCase() === 'x';
       const taskText = parseInline(taskMatch[3]);
-      htmlOut.push(`<div class="task-list-item"><input type="checkbox" ${isChecked ? 'checked' : ''} disabled><span class="${isChecked ? 'task-done' : ''}">${taskText}</span></div>`);
+      const indentStyle = indentLevel > 0 ? ` style="margin-left: ${indentLevel * 1.5}rem;"` : '';
+      htmlOut.push(`<div class="task-list-item"${indentStyle}><input type="checkbox" class="task-checkbox" ${isChecked ? 'checked' : ''} disabled><span class="task-content ${isChecked ? 'task-done' : ''}">${taskText}</span></div>`);
       continue;
     }
 
-    // 普通清單
+    // 普通清單 (支援階層縮排與數字標號)
     const listMatch = line.match(/^(\s*)([-*+]|\d+\.)\s+(.*)$/);
     if (listMatch) {
-      htmlOut.push(`<div class="list-item"><span class="list-bullet">•</span><span>${parseInline(listMatch[3])}</span></div>`);
+      const indentLevel = Math.floor(listMatch[1].length / 2);
+      const isNum = /^\d+\./.test(listMatch[2]);
+      const bullet = isNum ? listMatch[2] : '•';
+      const indentStyle = indentLevel > 0 ? ` style="margin-left: ${indentLevel * 1.5}rem;"` : '';
+      htmlOut.push(`<div class="list-item"${indentStyle}><span class="list-bullet">${bullet}</span><span class="list-content">${parseInline(listMatch[3])}</span></div>`);
       continue;
     }
 
@@ -139,6 +207,10 @@ export function renderMarkdownPreview(markdown, images = []) {
   if (inTable) {
     htmlOut.push(flushTable());
   }
+  if (inQuote) {
+    htmlOut.push(flushQuote());
+  }
 
   return htmlOut.join('\n');
 }
+

@@ -3,6 +3,7 @@
  * 依賴純介面 parser，不直接耦合特定運行環境
  */
 import { escapeMarkdown } from '../../utils/dom.util.js';
+import { normalizeMarkdown } from '../../utils/format.util.js';
 import { parseOdtStyles, resolveTocLevel, applyParagraphColor } from './odt-styles.js';
 
 function isInsideHeader(node) {
@@ -20,6 +21,11 @@ function convertElement(node, styles, imageMap, listState = { level: 0, ordered:
   if (!node) return '';
 
   if (node.nodeType === 3) {
+    const parentTag = node.parentNode ? (node.parentNode.tagName || node.parentNode.nodeName) : '';
+    const isContainer = /^(office:body|office:text|text:section|table:table|table:table-row|text:list|text:list-item)$/.test(parentTag);
+    if (isContainer && /^\s*$/.test(node.nodeValue)) {
+      return '';
+    }
     return escapeMarkdown(node.nodeValue);
   }
 
@@ -27,6 +33,10 @@ function convertElement(node, styles, imageMap, listState = { level: 0, ordered:
     const tagName = node.tagName || node.nodeName;
 
     switch (tagName) {
+      case 'text:line-break': {
+        return '  \n';
+      }
+
       case 'text:h': {
         const level = parseInt(node.getAttribute('text:outline-level') || '1', 10);
         const hashes = '#'.repeat(Math.min(Math.max(level, 1), 6));
@@ -35,8 +45,12 @@ function convertElement(node, styles, imageMap, listState = { level: 0, ordered:
       }
 
       case 'text:p': {
-        const content = convertChildren(node, styles, imageMap);
+        let content = convertChildren(node, styles, imageMap);
         if (!content.trim()) return '';
+
+        // 移除 XML 原始檔縮排產生的多餘換行，但保留 line-break 產生的軟換行
+        content = content.split('\n').map(line => line.trim()).filter(Boolean).join('\n');
+        content = content.replace(/(?<!  )\n/g, ' ');
 
         if (isInsideHeader(node)) {
           return content;
@@ -260,7 +274,7 @@ export function parseOdtXml(contentXml, parserInstance = null) {
 
   const bodyNode = doc.getElementsByTagName('office:body')[0];
   let markdown = convertChildren(bodyNode, styles, imageMap);
-  markdown = markdown.replace(/\n{3,}/g, '\n\n').trim();
+  markdown = normalizeMarkdown(markdown);
 
   return { markdown, imageMap };
 }

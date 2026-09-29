@@ -16,7 +16,8 @@
 
 **word2md** 是一個在瀏覽器端運作的**多格式文件轉 Markdown 工具**。
 
-專案遵循 [goldbergyoni/nodebestpractices](https://github.com/goldbergyoni/nodebestpractices) 分層架構，所有解析（DOCX、ODT、HTML、ZIP 網頁包）與圖片擷取均直接在瀏覽器本機記憶體完成，檔案不會上傳到任何伺服器。支援直接部署於 **GitHub Pages** 或各類靜態主機。
+> [!NOTE]
+> **隱私第一 (100% Client-Side)**：所有解析（DOCX、ODT、HTML、ZIP 網頁包）與圖片擷取均直接在使用者瀏覽器的本機記憶體完成，檔案不會上傳到任何伺服器。專案亦支援直接部署於 **GitHub Pages** 或各類靜態主機。
 
 ---
 
@@ -127,7 +128,8 @@ word2md/
 
 ### 本機執行 (Local Development)
 
-本專案使用原生 ES Modules，請使用靜態 HTTP 伺服器開啟（不支援直接以 `file://` 開啟）：
+> [!TIP]
+> 本專案使用原生 ES Modules，請透過本機 HTTP 伺服器開啟（不支援直接以 `file://` 協議瀏覽）：
 
 #### 使用 npm / npx
 ```bash
