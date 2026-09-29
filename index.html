@@ -23,7 +23,7 @@
   <script src="https://unpkg.com/lucide@latest"></script>
 
   <link rel="stylesheet" href="./assets/css/style.css">
-  <link rel="icon" type="image/svg+xml" href="./assets/images/favicon.svg">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cpath d='M14 4 L60 4 L86 30 L86 86 A10 10 0 0 1 76 96 L14 96 A10 10 0 0 1 4 86 L4 14 A10 10 0 0 1 14 4 Z' fill='%232563eb'/%3E%3Cpath d='M60 4 L60 22 A8 8 0 0 0 68 30 L86 30 Z' fill='%2360a5fa'/%3E%3Cpath d='M20 72 L20 38 L33 38 L45 54 L57 38 L70 38 L70 60 L78 60 L63.5 78 L49 60 L57 60 L57 48 L45 64 L33 48 L33 72 Z' fill='%23ffffff'/%3E%3Cpath d='M23 69 L23 41 L32 41 L45 56 L58 41 L67 41 L67 58 L74 58 L63.5 72 L53 58 L60 58 L60 47 L45 65 L30 47 L30 69 Z' fill='%2306b6d4'/%3E%3C/svg%3E">
 </head>
 <body>
   <div class="app-container">
@@ -31,7 +31,30 @@
     <header class="app-header">
       <div class="logo-area">
         <div class="logo-icon">
-          <img src="./assets/images/logo.svg" alt="word2md logo" class="app-logo">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" class="app-logo" width="36" height="36">
+            <defs>
+              <linearGradient id="docGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#3b82f6"/>
+                <stop offset="100%" stop-color="#1d4ed8"/>
+              </linearGradient>
+              <linearGradient id="cyanGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#38bdf8"/>
+                <stop offset="100%" stop-color="#06b6d4"/>
+              </linearGradient>
+              <linearGradient id="foldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#60a5fa"/>
+                <stop offset="100%" stop-color="#2563eb"/>
+              </linearGradient>
+            </defs>
+            <!-- 文件主體 -->
+            <path d="M 14 4 L 60 4 L 86 30 L 86 86 A 10 10 0 0 1 76 96 L 14 96 A 10 10 0 0 1 4 86 L 4 14 A 10 10 0 0 1 14 4 Z" fill="url(#docGrad)"/>
+            <!-- 文件折角 -->
+            <path d="M 60 4 L 60 22 A 8 8 0 0 0 68 30 L 86 30 Z" fill="url(#foldGrad)"/>
+            <path d="M 60 22 L 68 30 L 60 30 Z" fill="#1e3a8a" opacity="0.4"/>
+            <!-- Markdown M↓ 標誌 -->
+            <path d="M 20 72 L 20 38 L 33 38 L 45 54 L 57 38 L 70 38 L 70 60 L 78 60 L 63.5 78 L 49 60 L 57 60 L 57 48 L 45 64 L 33 48 L 33 72 Z" fill="#ffffff"/>
+            <path d="M 23 69 L 23 41 L 32 41 L 45 56 L 58 41 L 67 41 L 67 58 L 74 58 L 63.5 72 L 53 58 L 60 58 L 60 47 L 45 65 L 30 47 L 30 69 Z" fill="url(#cyanGrad)"/>
+          </svg>
         </div>
         <div class="logo-text">
           <h1>word<span>2md</span></h1>
