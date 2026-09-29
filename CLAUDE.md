@@ -30,8 +30,12 @@ The application executes **100% inside the user's browser memory (Client-Side)**
 word2md/
 ├── index.html                      # Entry point for GitHub Pages (CDN imports)
 ├── assets/                         # Static assets
-│   └── css/
-│       └── style.css               # Glassmorphism dark UI with responsive tables
+│   ├── css/
+│   │   └── style.css               # Glassmorphism dark UI with responsive tables
+│   └── images/
+│       ├── logo.svg                # Vector brand logo
+│       ├── favicon.svg             # Web favicon
+│       └── logo.png                # High-res raster icon
 ├── src/                            # Source root
 │   ├── index.js                    # Application Bootstrapper
 │   ├── config/                     # Configuration constants (1.4 Separate config)

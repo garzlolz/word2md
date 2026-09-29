@@ -1,12 +1,22 @@
-# word2md
+<p align="center">
+  <img src="assets/images/logo.svg" width="96" height="96" alt="word2md Logo">
+</p>
 
-[![License: ISC](https://img.shields.io/badge/License-ISC-blue.svg)](https://opensource.org/licenses/ISC)
-[![Deploy to GitHub Pages](https://img.shields.io/badge/GitHub%20Pages-Ready-brightgreen.svg)](https://pages.github.com/)
-[![Architecture: Clean Code](https://img.shields.io/badge/Architecture-Node%20Best%20Practices-blueviolet.svg)](https://github.com/goldbergyoni/nodebestpractices)
+<h1 align="center">word2md</h1>
+
+<p align="center">
+  在瀏覽器本機將多格式文件（DOCX、ODT、HTML、ZIP）轉換為 Markdown 的輕量工具
+</p>
+
+<p align="center">
+  <a href="https://opensource.org/licenses/ISC"><img src="https://img.shields.io/badge/License-ISC-blue.svg" alt="License: ISC"></a>
+  <a href="https://pages.github.com/"><img src="https://img.shields.io/badge/GitHub%20Pages-Ready-brightgreen.svg" alt="Deploy to GitHub Pages"></a>
+  <a href="https://github.com/goldbergyoni/nodebestpractices"><img src="https://img.shields.io/badge/Architecture-Node%20Best%20Practices-blueviolet.svg" alt="Architecture: Clean Code"></a>
+</p>
 
 **word2md** 是一個在瀏覽器端運作的**多格式文件轉 Markdown 工具**。
 
-專案遵循 [goldbergyoni/nodebestpractices](https://github.com/goldbergyoni/nodebestpractices) 分層架構，所有解析（ODT、HTML、ZIP 網頁包）與圖片擷取均直接在瀏覽器本機記憶體完成，檔案不會上傳到任何伺服器。支援直接部署於 **GitHub Pages** 或各類靜態主機。
+專案遵循 [goldbergyoni/nodebestpractices](https://github.com/goldbergyoni/nodebestpractices) 分層架構，所有解析（DOCX、ODT、HTML、ZIP 網頁包）與圖片擷取均直接在瀏覽器本機記憶體完成，檔案不會上傳到任何伺服器。支援直接部署於 **GitHub Pages** 或各類靜態主機。
 
 ---
 
@@ -55,8 +65,12 @@
 word2md/
 ├── index.html                      # 網頁入口（透過 CDN 載入 JSZip、Mammoth、Turndown 與 Lucide）
 ├── assets/                         # 靜態資源目錄
-│   └── css/
-│       └── style.css               # 介面樣式與表格捲動設定
+│   ├── css/
+│   │   └── style.css               # 介面樣式與表格捲動設定
+│   └── images/
+│       ├── logo.svg                # 專案向量標誌
+│       ├── favicon.svg             # 網站圖示
+│       └── logo.png                # 高解析度點陣圖標
 ├── src/                            # 核心原始程式碼 (Source Root)
 │   ├── index.js                    # 應用程式啟動入口
 │   ├── config/                     # 設定常數層

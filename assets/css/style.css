@@ -80,12 +80,17 @@ body {
   width: 48px;
   height: 48px;
   border-radius: var(--border-radius-md);
-  background: var(--primary-gradient);
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--text-white);
   box-shadow: var(--glow-shadow);
+  overflow: hidden;
+}
+
+.logo-icon img.app-logo {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
 }
 
 .logo-icon i {
