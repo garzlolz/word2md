@@ -5,19 +5,18 @@
 <h1 align="center">word2md</h1>
 
 <p align="center">
-  在瀏覽器本機將多格式文件（DOCX、ODT、HTML、ZIP）轉換為 Markdown 的輕量工具
-</p>
-
-<p align="center">
   <a href="https://opensource.org/licenses/ISC"><img src="https://img.shields.io/badge/License-ISC-blue.svg" alt="License: ISC"></a>
   <a href="https://pages.github.com/"><img src="https://img.shields.io/badge/GitHub%20Pages-Ready-brightgreen.svg" alt="Deploy to GitHub Pages"></a>
+  <a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Modules"><img src="https://img.shields.io/badge/Architecture-Pure%20ESM%20%2B%20CDN-purple.svg" alt="Architecture: Pure ESM + CDN"></a>
   <a href="https://github.com/goldbergyoni/nodebestpractices"><img src="https://img.shields.io/badge/Architecture-Node%20Best%20Practices-blueviolet.svg" alt="Architecture: Clean Code"></a>
 </p>
 
-**word2md** 是一個在瀏覽器端運作的**多格式文件轉 Markdown 工具**。
+**word2md** 是一個極速、輕量且注重隱私的**純前端多格式文件轉 Markdown 工具**。
+
+專案遵循 [goldbergyoni/nodebestpractices](https://github.com/goldbergyoni/nodebestpractices) 規範之清晰分層架構（Clean Code），採用 **原生 ES Modules (ESM) + CDN** 的零打包架構。
 
 > [!NOTE]
-> **隱私第一 (100% Client-Side)**：所有解析（DOCX、ODT、HTML、ZIP 網頁包）與圖片擷取均直接在使用者瀏覽器的本機記憶體完成，檔案不會上傳到任何伺服器。專案亦支援直接部署於 **GitHub Pages** 或各類靜態主機。
+> **隱私第一 (100% Client-Side)**：所有文件解析（DOCX、ODT、HTML、ZIP 網頁包）與圖片擷取均直接在使用者瀏覽器的本機記憶體完成，檔案完全不會上傳到任何伺服器。專案天然支援直接部署於 **GitHub Pages** 或各類靜態主機。
 
 ---
 
@@ -55,6 +54,20 @@
 | **ODT** | `.odt` | 大綱標題 (`#`-`######`)、文字樣式、GFM 表格、清單、目錄 (TOC)、圖片擷取 |
 | **HTML** | `.html`, `.htm` | GFM 表格、清單、Notion 待辦清單 (`- [ ]`)、Base64 圖片擷取、清理非必要標籤 |
 | **ZIP 網頁包** | `.zip` | 包含主 HTML 與圖片資料夾的完整網頁封裝包，自動關聯圖片並轉為相對路徑 |
+
+---
+
+## 技術棧 (Tech Stack)
+
+- **前端架構核心**：純原生 ES Modules (JavaScript ES2022+)，零打包建置步驟 (No Build Step)
+- **程式碼規範**：遵循 [goldbergyoni/nodebestpractices](https://github.com/goldbergyoni/nodebestpractices) 清晰分層架構（Clean Code）
+- **外掛依賴 (CDN)**：
+  - [Mammoth.js 1.8.0](https://github.com/mwilliamson/mammoth.js)（純前端 DOCX 語意解析）
+  - [JSZip 3.10.1](https://stuk.github.io/jszip/)（純前端 ODT 解壓與記憶體 ZIP 封裝）
+  - [Turndown 7.2.0](https://github.com/mixmark-io/turndown) + [turndown-plugin-gfm](https://github.com/mixmark-io/turndown-plugin-gfm)（HTML 轉 Markdown）
+  - [Lucide Icons](https://lucide.dev/)（極簡現代圖標集）
+- **樣式系統**：Vanilla CSS3（HSL Design Tokens、自適應 Flexbox/Grid 佈局、Glassmorphism）
+- **資料儲存**：瀏覽器原生 `localStorage`（歷史紀錄）
 
 ---
 
