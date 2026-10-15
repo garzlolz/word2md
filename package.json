@@ -7,7 +7,9 @@
     "dev": "npx serve .",
     "start": "npx serve .",
     "convert": "node run-convert.js",
-    "gen-test": "node generate-test-odt.js"
+    "gen-test": "node generate-test-odt.js",
+    "gen-docx": "node generate-test-docx.js",
+    "gen-pdf": "node generate-test-pdf.js"
   },
   "keywords": [],
   "author": "",
@@ -18,6 +20,7 @@
     "adm-zip": "^0.6.0",
     "jsdom": "^29.1.1",
     "mammoth": "^1.12.3",
+    "pdfjs-dist": "^3.11.174",
     "turndown": "^7.2.4",
     "turndown-plugin-gfm": "^1.0.2"
   }

@@ -16,14 +16,14 @@
 專案遵循 [goldbergyoni/nodebestpractices](https://github.com/goldbergyoni/nodebestpractices) 規範之清晰分層架構（Clean Code），採用 **原生 ES Modules (ESM) + CDN** 的零打包架構。
 
 > [!NOTE]
-> **隱私第一 (100% Client-Side)**：所有文件解析（DOCX、ODT、HTML、ZIP 網頁包）與圖片擷取均直接在使用者瀏覽器的本機記憶體完成，檔案完全不會上傳到任何伺服器。專案天然支援直接部署於 **GitHub Pages** 或各類靜態主機。
+> **隱私第一 (100% Client-Side)**：所有文件解析（DOCX、ODT、PDF、HTML、ZIP 網頁包）與圖片擷取均直接在使用者瀏覽器的本機記憶體完成，檔案完全不會上傳到任何伺服器。專案天然支援直接部署於 **GitHub Pages** 或各類靜態主機。
 
 ---
 
 ## 主要特色 (Features)
 
 - **純前端運作，檔案不上傳**:
-  - 瀏覽器內解析：使用原生 `DOMParser` 與 `JSZip` 處理檔案，不經任何後端伺服器，保障隱私。
+  - 瀏覽器內解析：使用原生 `DOMParser`、`JSZip` 與 `PDF.js` 處理檔案，不經任何後端伺服器，保障隱私。
   - 免打包流程：使用原生 ES Modules，修改後重新整理即可測試。
   - 支援靜態託管：可直接部署於 GitHub Pages 等靜態網站服務。
 
@@ -35,6 +35,7 @@
 - **多格式支援**:
   - **DOCX 轉換**：使用 Mammoth.js 進行語意轉換，支援標題階層、粗體斜體、清單、表格與內嵌圖片擷取。
   - **ODT 轉換**：支援標題階層、文字樣式（粗體、斜體、底線、刪除線）、清單、表格與目錄。
+  - **PDF 轉換**：使用 Mozilla PDF.js 進行幾何空間聚類與字級眾數推導，自動識別多級大綱標題、段落流與項目清單，並抽取內嵌影像。
   - **HTML 轉換**：整合 Turndown 與 GFM，處理 Notion 匯出格式、過濾雜訊標籤並擷取內嵌圖片。
   - **ZIP 網頁包解壓**：自動讀取 HTML 與圖片資料夾，將 Markdown 圖片路徑轉換為相對目錄。
   - **缺漏圖片標記**：匯出若缺少圖片，會標記為 `[🖼️ 缺漏圖片: 名稱](Pictures/檔名)`，方便後續補齊。
@@ -52,6 +53,7 @@
 | :--- | :--- | :--- |
 | **DOCX** | `.docx` | 大綱標題 (`#`-`######`)、文字樣式、GFM 表格、巢狀清單、圖片擷取 |
 | **ODT** | `.odt` | 大綱標題 (`#`-`######`)、文字樣式、GFM 表格、清單、目錄 (TOC)、圖片擷取 |
+| **PDF** | `.pdf` | 空間座標聚類、字級眾數推導標題 (`#`-`####`)、項目清單、內嵌圖片抽取 |
 | **HTML** | `.html`, `.htm` | GFM 表格、清單、Notion 待辦清單 (`- [ ]`)、Base64 圖片擷取、清理非必要標籤 |
 | **ZIP 網頁包** | `.zip` | 包含主 HTML 與圖片資料夾的完整網頁封裝包，自動關聯圖片並轉為相對路徑 |
 
@@ -62,6 +64,7 @@
 - **前端架構核心**：純原生 ES Modules (JavaScript ES2022+)，零打包建置步驟 (No Build Step)
 - **程式碼規範**：遵循 [goldbergyoni/nodebestpractices](https://github.com/goldbergyoni/nodebestpractices) 清晰分層架構（Clean Code）
 - **外掛依賴 (CDN)**：
+  - [Mozilla PDF.js 3.11.174](https://github.com/mozilla/pdf.js)（純前端 PDF 座標聚類與文字/影像解析）
   - [Mammoth.js 1.8.0](https://github.com/mwilliamson/mammoth.js)（純前端 DOCX 語意解析）
   - [JSZip 3.10.1](https://stuk.github.io/jszip/)（純前端 ODT 解壓與記憶體 ZIP 封裝）
   - [Turndown 7.2.0](https://github.com/mixmark-io/turndown) + [turndown-plugin-gfm](https://github.com/mixmark-io/turndown-plugin-gfm)（HTML 轉 Markdown）
@@ -77,7 +80,7 @@
 
 ```text
 word2md/
-├── index.html                      # 網頁入口（透過 CDN 載入 JSZip、Mammoth、Turndown 與 Lucide）
+├── index.html                      # 網頁入口（透過 CDN 載入 JSZip、Mammoth、PDF.js、Turndown 與 Lucide）
 ├── assets/                         # 靜態資源目錄
 │   ├── css/
 │   │   └── style.css               # 介面樣式與表格捲動設定
@@ -102,6 +105,8 @@ word2md/
 │   ├── domain/                     # 核心轉換邏輯層（純邏輯）
 │   │   ├── docx/
 │   │   │   └── docx-parser.js      # DOCX 語意轉換與圖片擷取
+│   │   ├── pdf/
+│   │   │   └── pdf-parser.js       # PDF 座標聚類、字級眾數推導與圖片擷取
 │   │   ├── odt/
 │   │   │   ├── odt-parser.js       # ODT XML 節點解析與轉換
 │   │   │   └── odt-styles.js       # ODT 樣式與標題層級推導
@@ -113,9 +118,10 @@ word2md/
 │       ├── dom.util.js             # DOM 操作與檔名清理
 │       ├── format.util.js          # 檔案大小與時間格式化
 │       └── markdown-render.util.js # Markdown 轉 HTML 預覽渲染
-├── run-convert.js                  # CLI 轉換指令稿（支援 DOCX 與 ODT，共用 domain 邏輯）
+├── run-convert.js                  # CLI 轉換指令稿（支援 DOCX、ODT 與 PDF，共用 domain 邏輯）
 ├── generate-test-docx.js           # 測試用 DOCX 檔案產生器
 ├── generate-test-odt.js            # 測試用 ODT 檔案產生器
+├── generate-test-pdf.js            # 測試用 PDF 檔案產生器
 ├── package.json                    # 專案設定檔
 └── README.md                       # 說明文件
 ```

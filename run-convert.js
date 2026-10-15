@@ -10,6 +10,7 @@ import turndownPluginGfm from 'turndown-plugin-gfm';
 
 import { parseOdtXml } from './src/domain/odt/odt-parser.js';
 import { parseDocx } from './src/domain/docx/docx-parser.js';
+import { parsePdf } from './src/domain/pdf/pdf-parser.js';
 import { sanitizeFileName } from './src/utils/dom.util.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -89,8 +90,26 @@ async function main() {
         }
       }
     }
+  } else if (lowerName.endsWith('.pdf')) {
+    // PDF 轉換
+    const pdfjsModule = await import('pdfjs-dist/legacy/build/pdf.js');
+    const pdfjsLib = pdfjsModule.default || pdfjsModule;
+    const result = await parsePdf(fileBuffer, { pdfjsLib });
+    markdown = result.markdown;
+
+    if (result.images && result.images.length > 0) {
+      const picturesDir = path.join(targetDir, 'Pictures');
+      fs.mkdirSync(picturesDir, { recursive: true });
+
+      for (const img of result.images) {
+        const destPath = path.join(picturesDir, img.fileName);
+        const arrayBuffer = await img.blob.arrayBuffer();
+        fs.writeFileSync(destPath, Buffer.from(arrayBuffer));
+        imageCount++;
+      }
+    }
   } else {
-    console.error('錯誤：僅支援 .docx 與 .odt 檔案轉換');
+    console.error('錯誤：僅支援 .docx、.odt 與 .pdf 檔案轉換');
     process.exit(1);
   }
 

@@ -19,6 +19,21 @@
   <!-- Mammoth.js (for Client-side DOCX to HTML) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.8.0/mammoth.browser.min.js"></script>
 
+  <!-- PDF.js (for Client-side PDF to Text/Markdown) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script>
+    if (typeof pdfjsLib !== 'undefined') {
+      try {
+        const workerUrl = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+        const workerBlob = new Blob([`importScripts("${workerUrl}");`], { type: 'application/javascript' });
+        pdfjsLib.GlobalWorkerOptions.workerSrc = URL.createObjectURL(workerBlob);
+      } catch (e) {
+        console.warn('PDF.js Worker Blob 建立失敗，降級為直接 URL：', e);
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+      }
+    }
+  </script>
+
   <!-- Lucide Icons -->
   <script src="https://unpkg.com/lucide@latest"></script>
 
@@ -89,10 +104,10 @@
                 <i data-lucide="file-up"></i>
               </div>
               <h3>將檔案拖曳至此</h3>
-              <p>支援 .docx、.odt、.html、.zip</p>
+              <p>支援 .docx、.odt、.pdf、.html、.zip</p>
               <span class="file-limit">純前端本機解析，檔案不經伺服器</span>
             </div>
-            <input type="file" id="file-input" accept=".docx,.odt,.html,.htm,.zip" style="display: none;">
+            <input type="file" id="file-input" accept=".docx,.odt,.pdf,.html,.htm,.zip" style="display: none;">
           </div>
 
           <div class="selected-file-info" id="selected-file-info" style="display: none;">
@@ -178,7 +193,16 @@
                 <i data-lucide="refresh-cw" class="spin-slow"></i>
               </div>
               <h2>尚未選擇文件</h2>
-              <p>請從左側上傳 DOCX、ODT、HTML 或 ZIP 檔案，轉換後將在此顯示預覽與 Markdown 內容</p>
+              <p>請從左側上傳 DOCX、ODT、PDF、HTML 或 ZIP 檔案，轉換後將在此顯示預覽與 Markdown 內容</p>
+            </div>
+
+            <!-- Error Screen -->
+            <div class="welcome-screen error-screen" id="error-screen" style="display: none;">
+              <div class="welcome-illustration error-illustration" style="border-color: rgba(239, 68, 68, 0.4); color: #f87171;">
+                <i data-lucide="alert-triangle"></i>
+              </div>
+              <h2 id="error-title" style="color: #f87171;">文件轉換失敗</h2>
+              <p id="error-message">請確認檔案格式是否正確或未損壞</p>
             </div>
 
             <!-- Output Info Panel (Stats) -->

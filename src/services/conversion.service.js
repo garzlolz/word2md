@@ -8,6 +8,7 @@ import { ZipService } from './zip.service.js';
 import { parseOdtXml } from '../domain/odt/odt-parser.js';
 import { parseHtmlContent } from '../domain/html/html-parser.js';
 import { parseDocx } from '../domain/docx/docx-parser.js';
+import { parsePdf } from '../domain/pdf/pdf-parser.js';
 
 export class ConversionService {
   /**
@@ -50,6 +51,8 @@ export class ConversionService {
       result = await this.convertDocx(file);
     } else if (lowerName.endsWith('.odt')) {
       result = await this.convertOdt(file);
+    } else if (lowerName.endsWith('.pdf')) {
+      result = await this.convertPdf(file);
     } else if (lowerName.endsWith('.zip')) {
       result = await this.convertZipWebPackage(file);
     } else {
@@ -70,6 +73,14 @@ export class ConversionService {
   static async convertDocx(file) {
     const arrayBuffer = await file.arrayBuffer();
     return parseDocx(arrayBuffer);
+  }
+
+  /**
+   * 轉換 PDF
+   */
+  static async convertPdf(file) {
+    const arrayBuffer = await file.arrayBuffer();
+    return parsePdf(arrayBuffer);
   }
 
   /**

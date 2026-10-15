@@ -5,7 +5,7 @@
 
 export const APP_CONFIG = {
   // 支援的檔案副檔名清單
-  SUPPORTED_EXTENSIONS: ['.docx', '.odt', '.html', '.htm', '.zip'],
+  SUPPORTED_EXTENSIONS: ['.docx', '.odt', '.pdf', '.html', '.htm', '.zip'],
 
   // 單檔最大限制 (50MB)
   MAX_FILE_SIZE_BYTES: 50 * 1024 * 1024,
@@ -14,6 +14,7 @@ export const APP_CONFIG = {
   FORMAT_TYPES: {
     DOCX: 'docx',
     ODT: 'odt',
+    PDF: 'pdf',
     HTML: 'html',
     ZIP: 'zip'
   },

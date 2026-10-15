@@ -8,6 +8,7 @@ export class PreviewComponent {
   constructor({ onToast }) {
     this.loader = document.getElementById('loader');
     this.welcomeScreen = document.getElementById('welcome-screen');
+    this.errorScreen = document.getElementById('error-screen');
     this.outputInfoBar = document.getElementById('output-info-bar');
     this.infoPath = document.getElementById('info-path');
     this.infoImages = document.getElementById('info-images');
@@ -88,6 +89,7 @@ export class PreviewComponent {
   showLoading() {
     this.loader.style.display = 'flex';
     this.welcomeScreen.style.display = 'none';
+    if (this.errorScreen) this.errorScreen.style.display = 'none';
     this.outputInfoBar.style.display = 'none';
     this.tabRendered.style.display = 'none';
     this.tabRaw.style.display = 'none';
@@ -105,6 +107,7 @@ export class PreviewComponent {
     this.currentData = data;
     this.hideLoading();
     this.welcomeScreen.style.display = 'none';
+    if (this.errorScreen) this.errorScreen.style.display = 'none';
 
     // 資訊欄更新
     if (this.infoPath) this.infoPath.textContent = `${data.baseName}.md`;
@@ -137,8 +140,39 @@ export class PreviewComponent {
   showWelcome() {
     this.hideLoading();
     this.welcomeScreen.style.display = 'flex';
+    if (this.errorScreen) this.errorScreen.style.display = 'none';
     this.outputInfoBar.style.display = 'none';
     this.tabRendered.style.display = 'none';
     this.tabRaw.style.display = 'none';
+  }
+
+  showError(message, fileName = '') {
+    this.hideLoading();
+    this.welcomeScreen.style.display = 'none';
+    this.outputInfoBar.style.display = 'none';
+    this.tabRendered.style.display = 'none';
+    this.tabRaw.style.display = 'none';
+
+    if (this.btnCopy) this.btnCopy.disabled = true;
+    if (this.btnDownloadZip) this.btnDownloadZip.disabled = true;
+    if (this.btnDownloadMd) this.btnDownloadMd.disabled = true;
+
+    if (this.errorScreen) {
+      this.errorScreen.style.display = 'flex';
+      const msgEl = document.getElementById('error-message');
+      if (msgEl) {
+        msgEl.textContent = message || '轉換過程發生錯誤，請檢查檔案格式是否正確。';
+      }
+      const titleEl = document.getElementById('error-title');
+      if (titleEl) {
+        titleEl.textContent = fileName ? `「${fileName}」轉換失敗` : '文件轉換失敗';
+      }
+    } else {
+      this.welcomeScreen.style.display = 'flex';
+    }
+
+    if (typeof lucide !== 'undefined') {
+      lucide.createIcons();
+    }
   }
 }

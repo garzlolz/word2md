@@ -47,7 +47,7 @@ class App {
       this.toast.success(`轉換成功！共擷取 ${result.images.length} 張圖片`);
     } catch (err) {
       console.error('文件轉換失敗：', err);
-      this.preview.showWelcome();
+      this.preview.showError(err.message, file?.name);
       this.toast.error(`轉換失敗：${err.message}`);
     }
   }
