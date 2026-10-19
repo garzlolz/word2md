@@ -2,6 +2,7 @@
  * preview.component.js - 成果預覽、原始碼對照與下載控制元件
  */
 import { renderMarkdownPreview } from '../utils/markdown-render.util.js';
+import { embedImagesAsBase64 } from '../utils/format.util.js';
 import { ZipService } from '../services/zip.service.js';
 
 export class PreviewComponent {
@@ -57,7 +58,7 @@ export class PreviewComponent {
       }
     });
 
-    // 下載 ZIP
+    // 下載 ZIP（保留 Pictures/ 圖片資料夾與 .md 相對路徑區隔）
     this.btnDownloadZip?.addEventListener('click', async () => {
       if (!this.currentData?.markdown) return;
       try {
@@ -73,13 +74,18 @@ export class PreviewComponent {
       }
     });
 
-    // 下載 .md
-    this.btnDownloadMd?.addEventListener('click', () => {
+    // 下載單一 .md（自動將圖片轉為 Base64 內嵌於 Markdown 中）
+    this.btnDownloadMd?.addEventListener('click', async () => {
       if (!this.currentData?.markdown) return;
       try {
-        const blob = new Blob([this.currentData.markdown], { type: 'text/markdown;charset=utf-8' });
+        const images = this.currentData.images || [];
+        const embeddedMarkdown = await embedImagesAsBase64(this.currentData.markdown, images);
+        const blob = new Blob([embeddedMarkdown], { type: 'text/markdown;charset=utf-8' });
         ZipService.saveBlob(blob, `${this.currentData.baseName}.md`);
-        this.onToast?.('Markdown 檔案下載成功！');
+        const msg = images.length > 0
+          ? `Markdown 檔案（已內嵌 ${images.length} 張 Base64 圖片）下載成功！`
+          : 'Markdown 檔案下載成功！';
+        this.onToast?.(msg);
       } catch (err) {
         this.onToast?.(`下載失敗：${err.message}`, true);
       }

@@ -108,3 +108,90 @@ export function normalizeMarkdown(markdown) {
   return text ? text + '\n' : '';
 }
 
+/**
+ * 將二進位 Blob 物件轉換為 Base64 Data URL
+ * @param {Blob} blob 
+ * @returns {Promise<string>}
+ */
+export async function blobToDataUrl(blob) {
+  if (!blob) return '';
+
+  if (typeof FileReader !== 'undefined') {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  }
+
+  // Node.js / 非瀏覽器環境備援
+  const arrayBuffer = await blob.arrayBuffer();
+  const mime = blob.type || 'image/png';
+  let base64 = '';
+  if (typeof Buffer !== 'undefined') {
+    base64 = Buffer.from(arrayBuffer).toString('base64');
+  } else {
+    const bytes = new Uint8Array(arrayBuffer);
+    let binary = '';
+    const chunkSize = 0x8000;
+    for (let i = 0; i < bytes.length; i += chunkSize) {
+      binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunkSize));
+    }
+    base64 = btoa(binary);
+  }
+  return `data:${mime};base64,${base64}`;
+}
+
+/**
+ * 將 Markdown 中的相對路徑圖片替換為 Base64 Data URL 內嵌格式（供單一 .md 下載使用）
+ * @param {string} markdown 
+ * @param {Array<{fileName: string, blob?: Blob, dataUrl?: string}>} [images] 
+ * @returns {Promise<string>}
+ */
+export async function embedImagesAsBase64(markdown, images = []) {
+  if (!markdown || !images || images.length === 0) {
+    return markdown || '';
+  }
+
+  const dataUrlMap = new Map();
+  for (const img of images) {
+    if (!img || !img.fileName) continue;
+    let dataUrl = img.dataUrl || '';
+    if (!dataUrl && img.blob) {
+      try {
+        dataUrl = await blobToDataUrl(img.blob);
+        img.dataUrl = dataUrl; // 快取轉換結果避免重複編碼
+      } catch (e) {
+        console.warn(`圖片轉 Base64 失敗：${img.fileName}`, e);
+      }
+    }
+    if (dataUrl) {
+      dataUrlMap.set(img.fileName, dataUrl);
+      dataUrlMap.set(`Pictures/${img.fileName}`, dataUrl);
+    }
+  }
+
+  if (dataUrlMap.size === 0) {
+    return markdown;
+  }
+
+  return markdown.replace(/!\[(.*?)\]\((.*?)\)/g, (match, alt, src) => {
+    const trimmedSrc = src.trim();
+    if (trimmedSrc.startsWith('data:image/')) return match;
+
+    let decodedSrc = trimmedSrc;
+    try {
+      decodedSrc = decodeURIComponent(trimmedSrc);
+    } catch (_) {}
+
+    const fileName = decodedSrc.split('/').pop();
+    const dataUrl = dataUrlMap.get(trimmedSrc) || dataUrlMap.get(decodedSrc) || dataUrlMap.get(fileName);
+    if (dataUrl) {
+      return `![${alt}](${dataUrl})`;
+    }
+    return match;
+  });
+}
+
+

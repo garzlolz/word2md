@@ -34,9 +34,16 @@ export function renderMarkdownPreview(markdown, images = []) {
       .replace(/\[🖼️ 缺漏圖片: (.*?)\]\((.*?)\)/g, '<span class="missing-image-badge" title="$2">🖼️ 缺漏圖片: $1</span>')
       // Markdown 圖片解析
       .replace(/!\[(.*?)\]\((.*?)\)/g, (match, alt, src) => {
-        const decodedSrc = decodeURIComponent(src);
+        const trimmedSrc = src.trim();
+        if (trimmedSrc.startsWith('data:image/')) {
+          return `<div class="preview-image-wrapper"><img src="${trimmedSrc}" alt="${alt}" loading="lazy"><span class="preview-image-caption">${alt || 'image'}</span></div>`;
+        }
+        let decodedSrc = trimmedSrc;
+        try {
+          decodedSrc = decodeURIComponent(trimmedSrc);
+        } catch (_) {}
         const fileName = decodedSrc.split('/').pop();
-        const objectUrl = imageMap.get(src) || imageMap.get(decodedSrc) || imageMap.get(fileName);
+        const objectUrl = imageMap.get(trimmedSrc) || imageMap.get(decodedSrc) || imageMap.get(fileName);
         if (objectUrl) {
           return `<div class="preview-image-wrapper"><img src="${objectUrl}" alt="${alt}" loading="lazy"><span class="preview-image-caption">${alt || fileName}</span></div>`;
         }
