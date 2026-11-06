@@ -38,7 +38,12 @@ export function formatTimestamp(date = new Date()) {
 export function normalizeMarkdown(markdown) {
   if (!markdown) return '';
 
-  const lines = markdown.replace(/\r\n/g, '\n').split('\n');
+  // 清除異常行結束字元 (Unicode LS U+2028、PS U+2029、NEL U+0085) 並統一換行符號為 \n
+  const sanitized = markdown
+    .replace(/[\u2028\u2029\u0085]/g, '')
+    .replace(/\r\n?/g, '\n');
+
+  const lines = sanitized.split('\n');
   const normalizedLines = [];
   let inFencedCode = false;
 
@@ -102,7 +107,15 @@ export function normalizeMarkdown(markdown) {
   text = text.replace(/([^\n])\n(---|\*\*\*|___)(?:\n|$)/g, '$1\n\n$2\n');
   text = text.replace(/(?:\n|^)(---|\*\*\*|___)\n([^\n])/g, '\n$1\n\n$2');
 
-  // 4. 收斂 3 個或以上連續空行
+  // 4. 合併相鄰且相同顏色的 <span> 標籤與相鄰粗體標記 (常見於 ODT 碎片化樣式節點)
+  let prevText;
+  do {
+    prevText = text;
+    text = text.replace(/<span style="color:(#[0-9a-fA-F]{3,6})">([^<\n]*?)<\/span><span style="color:\1">([^<\n]*?)<\/span>/g, '<span style="color:$1">$2$3</span>');
+    text = text.replace(/\*\*([^*\n]+)\*\*\*\*([^*\n]+)\*\*/g, '**$1$2**');
+  } while (text !== prevText);
+
+  // 5. 收斂 3 個或以上連續空行
   text = text.replace(/\n{3,}/g, '\n\n').trim();
 
   return text ? text + '\n' : '';

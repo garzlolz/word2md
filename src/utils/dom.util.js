@@ -20,8 +20,8 @@ export function sanitizeFileName(name) {
 export function escapeMarkdown(text) {
   if (!text) return '';
   return text
-    // 移除私有區塊字元 (Word/ODT 目錄項目符號等) 與物件取代字元
-    .replace(/[\uE000-\uF8FF\uFFFC]/g, '')
+    // 移除私有區塊字元 (Word/ODT 目錄項目符號等)、物件取代字元與異常行結束字元 (LS U+2028 / PS U+2029 / NEL U+0085)
+    .replace(/[\uE000-\uF8FF\uFFFC\u2028\u2029\u0085]/g, '')
     .replace(/\\/g, '\\\\')
     .replace(/\[/g, '\\[')
     .replace(/\]/g, '\\]');
