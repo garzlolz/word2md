@@ -4,7 +4,7 @@
  */
 import { escapeMarkdown } from '../../utils/dom.util.js';
 import { normalizeMarkdown } from '../../utils/format.util.js';
-import { parseOdtStyles, resolveTocLevel, applyParagraphColor } from './odt-styles.js';
+import { parseOdtStyles, resolveTocLevel, applyParagraphColor, isMeaningfulColor } from './odt-styles.js';
 
 function isInsideHeader(node) {
   let parent = node.parentNode;
@@ -17,7 +17,17 @@ function isInsideHeader(node) {
   return false;
 }
 
-function convertElement(node, styles, imageMap, listState = { level: 0, ordered: false }) {
+function isInsideTableCell(node) {
+  let parent = node.parentNode;
+  while (parent) {
+    const tag = parent.tagName || parent.nodeName;
+    if (tag === 'table:table-cell') return true;
+    parent = parent.parentNode;
+  }
+  return false;
+}
+
+function convertElement(node, styles, imageMap, listState = { level: 0, ordered: false, styleName: null }) {
   if (!node) return '';
 
   if (node.nodeType === 3) {
@@ -33,6 +43,29 @@ function convertElement(node, styles, imageMap, listState = { level: 0, ordered:
     const tagName = node.tagName || node.nodeName;
 
     switch (tagName) {
+      // 忽略 ODT 註解、修訂追蹤與表單宣告等非正文節點
+      case 'office:annotation':
+      case 'office:annotation-end':
+      case 'text:tracked-changes':
+      case 'text:change':
+      case 'text:change-start':
+      case 'text:change-end':
+      case 'office:forms':
+      case 'text:sequence-decls':
+      case 'text:user-field-decls':
+      case 'text:variable-decls': {
+        return '';
+      }
+
+      case 'text:s': {
+        const count = Math.min(Math.max(parseInt(node.getAttribute('text:c') || '1', 10), 1), 20);
+        return ' '.repeat(count);
+      }
+
+      case 'text:tab': {
+        return '\t';
+      }
+
       case 'text:line-break': {
         return '  \n';
       }
@@ -40,15 +73,17 @@ function convertElement(node, styles, imageMap, listState = { level: 0, ordered:
       case 'text:h': {
         const level = parseInt(node.getAttribute('text:outline-level') || '1', 10);
         const hashes = '#'.repeat(Math.min(Math.max(level, 1), 6));
-        const content = convertChildren(node, styles, imageMap);
-        return `\n\n${hashes} ${content.trim()}\n\n`;
+        const content = convertChildren(node, styles, imageMap).replace(/\t+/g, ' ').trim();
+        if (!content) return '';
+        return `\n\n${hashes} ${content}\n\n`;
       }
 
       case 'text:p': {
         let content = convertChildren(node, styles, imageMap);
         if (!content.trim()) return '';
 
-        // 移除 XML 原始檔縮排產生的多餘換行，但保留 line-break 產生的軟換行
+        // 將 Tab 轉為空白，移除 XML 原始檔縮排產生的多餘換行，但保留 line-break 產生的軟換行
+        content = content.replace(/\t+/g, ' ');
         content = content.split('\n').map(line => line.trim()).filter(Boolean).join('\n');
         content = content.replace(/(?<!  )\n/g, ' ');
 
@@ -59,14 +94,16 @@ function convertElement(node, styles, imageMap, listState = { level: 0, ordered:
         const isInsideListItem = (function hasListItemParent(n) {
           let p = n.parentNode;
           while (p) {
-            if (p.tagName === 'text:list-item' || p.nodeName === 'text:list-item') return true;
+            const pTag = p.tagName || p.nodeName;
+            if (pTag === 'text:list-item' || pTag === 'text:list-header') return true;
+            if (pTag === 'table:table-cell') return false;
             p = p.parentNode;
           }
           return false;
         })(node);
 
         if (isInsideListItem) {
-          return applyParagraphColor(node, styles, content);
+          return applyParagraphColor(node, styles, content) + '\n';
         }
 
         const coloredContent = applyParagraphColor(node, styles, content);
@@ -79,46 +116,118 @@ function convertElement(node, styles, imageMap, listState = { level: 0, ordered:
         let content = convertChildren(node, styles, imageMap);
 
         if (!content.trim()) return content;
+        if (!style) return content;
 
-        if (style) {
-          if (style.bold) content = `**${content}**`;
-          if (style.italic) content = `*${content}*`;
-          if (style.strike) content = `~~${content}~~`;
-          if (style.underline) content = `<u>${content}</u>`;
-          if (style.color && style.color.toUpperCase() !== '#000000') {
-            content = `<span style="color:${style.color}">${content}</span>`;
-          }
+        // 將前後空白移至 Markdown 語法標記外側，避免產生 "**文字 **" 無效語法
+        const leadMatch = content.match(/^\s*/);
+        const trailMatch = content.match(/\s*$/);
+        const lead = leadMatch ? leadMatch[0] : '';
+        const trail = trailMatch ? trailMatch[0] : '';
+        let core = content.trim();
+
+        // 若文字本身僅為星號 (如必填 *)，不套用粗體/斜體避免產生 ***** 破版
+        const isAsteriskOnly = /^\*+$/.test(core);
+        if (style.bold && !isAsteriskOnly) core = `**${core}**`;
+        if (style.italic && !isAsteriskOnly) core = `*${core}*`;
+        if (style.strike) core = `~~${core}~~`;
+        if (style.underline) core = `<u>${core}</u>`;
+        if (isMeaningfulColor(style.color)) {
+          core = `<span style="color:${style.color}">${core}</span>`;
         }
-        return content;
+        return `${lead}${core}${trail}`;
       }
 
       case 'text:a': {
         const href = node.getAttribute('xlink:href') || '#';
-        const linkText = convertChildren(node, styles, imageMap).trim();
+        const linkText = convertChildren(node, styles, imageMap).replace(/\t+/g, ' ').trim();
+        if (!linkText) return '';
         return `[${linkText}](${href})`;
       }
 
       case 'text:list': {
-        const isOrdered = node.getAttribute('text:style-name')?.includes('Number') ||
-                          node.getAttribute('text:style-name')?.includes('Ordered') ||
-                          false;
+        const ownStyleName = node.getAttribute('text:style-name');
+        const effectiveStyleName = ownStyleName || listState.styleName || null;
         const currentLevel = listState.level;
-        let listMarkdown = '\n';
+        const odtLevel = currentLevel + 1;
 
+        let isOrdered = false;
+        const listStyleDef = effectiveStyleName && styles.__listStyles ? styles.__listStyles[effectiveStyleName] : null;
+        if (listStyleDef && listStyleDef[odtLevel]) {
+          isOrdered = listStyleDef[odtLevel] === 'ordered';
+        } else if (effectiveStyleName) {
+          isOrdered = effectiveStyleName.includes('Number') || effectiveStyleName.includes('Ordered');
+        }
+
+        let listLines = [];
         const childNodes = node.childNodes;
         let itemIndex = 1;
+
         for (let i = 0; i < childNodes.length; i++) {
           const child = childNodes[i];
+          if (child.nodeType !== 1) continue;
           const childTag = child.tagName || child.nodeName;
-          if (childTag === 'text:list-item') {
-            const indent = '  '.repeat(currentLevel);
-            const prefix = isOrdered ? `${itemIndex}. ` : '- ';
-            const itemContent = convertChildren(child, styles, imageMap, { level: currentLevel + 1, ordered: isOrdered });
-            listMarkdown += `${indent}${prefix}${itemContent.trim()}\n`;
-            itemIndex++;
+
+          if (childTag === 'text:list-item' || childTag === 'text:list-header') {
+            const itemParagraphs = [];
+            const nestedLists = [];
+
+            const itemChildren = child.childNodes;
+            for (let j = 0; j < itemChildren.length; j++) {
+              const ic = itemChildren[j];
+              if (ic.nodeType !== 1) continue;
+              const icTag = ic.tagName || ic.nodeName;
+
+              if (icTag === 'text:list') {
+                const subListMd = convertElement(ic, styles, imageMap, {
+                  level: currentLevel + 1,
+                  ordered: isOrdered,
+                  styleName: effectiveStyleName
+                });
+                if (subListMd.trim()) {
+                  nestedLists.push(subListMd.replace(/^\n+|\n+$/g, ''));
+                }
+              } else {
+                const part = convertElement(ic, styles, imageMap, {
+                  level: currentLevel + 1,
+                  ordered: isOrdered,
+                  styleName: effectiveStyleName
+                }).trim();
+                if (part) {
+                  itemParagraphs.push(part);
+                }
+              }
+            }
+
+            // 若此 list-item 本身無文字段落，僅作為更深層 <text:list> 的包裝容器，直接展開子清單避免產生 "- - "
+            if (itemParagraphs.length === 0) {
+              if (nestedLists.length > 0) {
+                listLines.push(...nestedLists);
+              }
+            } else {
+              const indent = '  '.repeat(currentLevel);
+              const prefix = childTag === 'text:list-header'
+                ? `${indent}`
+                : `${indent}${isOrdered ? `${itemIndex}. ` : '- '}`;
+
+              listLines.push(`${prefix}${itemParagraphs[0]}`);
+              for (let pIdx = 1; pIdx < itemParagraphs.length; pIdx++) {
+                listLines.push(`${indent}  ${itemParagraphs[pIdx]}`);
+              }
+              if (nestedLists.length > 0) {
+                listLines.push(...nestedLists);
+              }
+              if (childTag === 'text:list-item') {
+                itemIndex++;
+              }
+            }
           }
         }
-        return listMarkdown + '\n';
+
+        if (listLines.length === 0) return '';
+        if (currentLevel === 0) {
+          return `\n\n${listLines.join('\n')}\n\n`;
+        }
+        return listLines.join('\n');
       }
 
       case 'table:table': {
@@ -161,7 +270,7 @@ function convertElement(node, styles, imageMap, listState = { level: 0, ordered:
 
           if (childTag === 'text:index-title') {
             const titleP = child.getElementsByTagName('text:p')[0];
-            const titleText = titleP ? convertChildren(titleP, styles, imageMap).trim() : '目錄';
+            const titleText = titleP ? convertChildren(titleP, styles, imageMap).replace(/\t+/g, ' ').trim() : '目錄';
             tocMarkdown += `## ${titleText}\n\n`;
           } else if (childTag === 'text:p') {
             const pStyleName = child.getAttribute('text:style-name');
@@ -175,12 +284,17 @@ function convertElement(node, styles, imageMap, listState = { level: 0, ordered:
             if (links.length > 0) {
               const a = links[0];
               targetRef = a.getAttribute('xlink:href') || '';
-              itemText = convertChildren(a, styles, imageMap).trim();
+              itemText = convertChildren(a, styles, imageMap);
             } else {
-              itemText = convertChildren(child, styles, imageMap).trim();
+              itemText = convertChildren(child, styles, imageMap);
             }
 
-            itemText = itemText.replace(/\t+/g, ' ').replace(/\s+\d+\s*$/, '').trim();
+            // 移除 Tab 與尾端頁碼 (例如 "一、迭代紀錄\t2" -> "一、迭代紀錄")
+            itemText = itemText
+              .replace(/\t+\s*\d+\s*$/, '')
+              .replace(/\t+/g, ' ')
+              .replace(/\s+\d+\s*$/, '')
+              .trim();
 
             if (itemText) {
               const mdAnchor = targetRef ? `(#${targetRef.replace(/^#/, '')})` : '';
@@ -209,9 +323,31 @@ function convertChildren(parent, styles, imageMap, listState) {
   return result;
 }
 
+/**
+ * 僅收集屬於當前 tableNode 自身的 table:table-row（排除巢狀子表格內的列）
+ * @param {Element} container 
+ * @param {Array<Element>} outRows 
+ */
+function collectOwnTableRows(container, outRows = []) {
+  if (!container || !container.childNodes) return outRows;
+  const children = container.childNodes;
+  for (let i = 0; i < children.length; i++) {
+    const child = children[i];
+    if (child.nodeType !== 1) continue;
+    const tag = child.tagName || child.nodeName;
+    if (tag === 'table:table-row') {
+      outRows.push(child);
+    } else if (tag === 'table:table-header-rows' || tag === 'table:table-rows' || tag === 'table:table-row-group') {
+      collectOwnTableRows(child, outRows);
+    }
+  }
+  return outRows;
+}
+
 function parseTable(tableNode, styles, imageMap) {
   const rows = [];
-  const rowNodes = tableNode.getElementsByTagName('table:table-row');
+  const rowNodes = collectOwnTableRows(tableNode);
+  const isNested = isInsideTableCell(tableNode);
 
   for (let r = 0; r < rowNodes.length; r++) {
     const rowNode = rowNodes[r];
@@ -220,12 +356,29 @@ function parseTable(tableNode, styles, imageMap) {
 
     for (let c = 0; c < cellNodes.length; c++) {
       const cell = cellNodes[c];
+      if (cell.nodeType !== 1) continue;
       const cellTag = cell.tagName || cell.nodeName;
 
-      if (cellTag === 'table:table-cell') {
+      if (cellTag === 'table:table-cell' || cellTag === 'table:covered-table-cell') {
         const repeat = parseInt(cell.getAttribute('table:number-columns-repeated') || '1', 10);
-        let cellText = convertChildren(cell, styles, imageMap).trim().replace(/\n+/g, ' ');
-        cellText = cellText.replace(/\|/g, '\\|');
+
+        if (cellTag === 'table:covered-table-cell') {
+          for (let rep = 0; rep < Math.min(repeat, 20); rep++) {
+            currentRow.push('');
+          }
+          continue;
+        }
+
+        // 將儲存格內的多個段落與清單項目以 <br> 串接，保留儲存格內換行結構
+        const rawCell = convertChildren(cell, styles, imageMap);
+        const cellLines = rawCell
+          .split('\n')
+          .map(l => l.trim())
+          .filter(Boolean);
+
+        let cellText = cellLines.join('<br>');
+        cellText = cellText.replace(/(?:<br>\s*)+$/i, '').replace(/^(?:\s*<br>)+/i, '');
+        cellText = cellText.replace(/(?<!\\)\|/g, '\\|');
 
         for (let rep = 0; rep < Math.min(repeat, 20); rep++) {
           currentRow.push(cellText);
@@ -239,18 +392,47 @@ function parseTable(tableNode, styles, imageMap) {
 
   if (rows.length === 0) return '';
 
-  const colCount = Math.max(...rows.map(r => r.length));
+  // 對齊所有列至最大欄數
+  let colCount = Math.max(...rows.map(r => r.length));
   const normalizedRows = rows.map(r => {
-    while (r.length < colCount) r.push('');
-    return r;
+    const copy = [...r];
+    while (copy.length < colCount) copy.push('');
+    return copy;
   });
 
+  // 修剪尾端完全空白的幽靈欄位（至少保留 1 欄）
+  while (colCount > 1 && normalizedRows.every(r => r[colCount - 1] === '')) {
+    normalizedRows.forEach(r => r.pop());
+    colCount--;
+  }
+
+  // 若為儲存格內的巢狀子表格，轉為結構化行內說明（避免破壞外層 GFM 表格語法）
+  if (isNested) {
+    const nestedLines = normalizedRows
+      .filter(r => r.some(cell => cell !== ''))
+      .map((r, idx) => {
+        const nonEmpty = r.filter(cell => cell !== '');
+        if (idx === 0) {
+          return `**[${nonEmpty.join(' / ')}]**`;
+        }
+        return `• ${nonEmpty.join('：')}`;
+      });
+    return `\n${nestedLines.join('\n')}\n`;
+  }
+
+  // 過濾完全空白的資料列（保留標題列；若全部資料列皆空則保留一列空資料列以維持表格結構）
+  const headerRow = normalizedRows[0];
+  let dataRows = normalizedRows.slice(1).filter(r => r.some(cell => cell !== ''));
+  if (dataRows.length === 0 && normalizedRows.length > 1) {
+    dataRows = [Array(colCount).fill('')];
+  }
+
   let tableMarkdown = '\n\n';
-  tableMarkdown += `| ${normalizedRows[0].join(' | ')} |\n`;
+  tableMarkdown += `| ${headerRow.join(' | ')} |\n`;
   tableMarkdown += `| ${Array(colCount).fill('---').join(' | ')} |\n`;
 
-  for (let i = 1; i < normalizedRows.length; i++) {
-    tableMarkdown += `| ${normalizedRows[i].join(' | ')} |\n`;
+  for (let i = 0; i < dataRows.length; i++) {
+    tableMarkdown += `| ${dataRows[i].join(' | ')} |\n`;
   }
 
   return tableMarkdown + '\n\n';

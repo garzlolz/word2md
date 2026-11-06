@@ -38,9 +38,9 @@ export function formatTimestamp(date = new Date()) {
 export function normalizeMarkdown(markdown) {
   if (!markdown) return '';
 
-  // 清除異常行結束字元 (Unicode LS U+2028、PS U+2029、NEL U+0085) 並統一換行符號為 \n
+  // 清除異常行結束字元 (Unicode LS U+2028、PS U+2029、NEL U+0085)、私有區塊字元與零寬字元，並統一換行符號為 \n
   const sanitized = markdown
-    .replace(/[\u2028\u2029\u0085]/g, '')
+    .replace(/[\uE000-\uF8FF\uFFFC\u2028\u2029\u0085\u200B-\u200D\uFEFF]/g, '')
     .replace(/\r\n?/g, '\n');
 
   const lines = sanitized.split('\n');
@@ -68,26 +68,41 @@ export function normalizeMarkdown(markdown) {
       continue;
     }
 
-    let cleanLine = rawLine;
-    const isListItem = /^\s*([*+-]|\d+\.)\s+/.test(rawLine);
-    const isBlockquote = /^\s*>/.test(rawLine);
-    const isTable = /^\s*\|/.test(rawLine);
-    const isHeading = /^\s*#{1,6}\s+/.test(rawLine);
+    // 忽略僅有 # 符號卻無任何文字內容的空白標題行 (例如 "###" 或 "####")
+    if (/^#{1,6}$/.test(trimmedLine)) {
+      continue;
+    }
+
+    // 修正多重疊加的清單符號 (例如 "- - 項目" 或 "- - - 項目" 轉為正確縮排階層)
+    let workingLine = rawLine;
+    const multiBulletMatch = workingLine.match(/^(\s*)((?:[-*+]\s+){2,})(.*)$/);
+    if (multiBulletMatch) {
+      const baseIndent = multiBulletMatch[1];
+      const bulletCount = (multiBulletMatch[2].match(/[-*+]\s+/g) || []).length;
+      const extraIndent = '  '.repeat(Math.max(0, bulletCount - 1));
+      workingLine = `${baseIndent}${extraIndent}- ${multiBulletMatch[3]}`;
+    }
+
+    let cleanLine = workingLine;
+    const isListItem = /^\s*([*+-]|\d+\.)\s+/.test(workingLine);
+    const isBlockquote = /^\s*>/.test(workingLine);
+    const isTable = /^\s*\|/.test(workingLine);
+    const isHeading = /^\s*#{1,6}\s+/.test(workingLine);
 
     if (isHeading || isTable) {
-      cleanLine = trimmedLine;
+      cleanLine = workingLine.trim();
     } else if (isBlockquote) {
-      cleanLine = rawLine.replace(/^\s+>/, '>');
+      cleanLine = workingLine.replace(/^\s+>/, '>');
     } else if (isListItem) {
       // 清單保留階層縮排，但清理行尾多餘空白
-      cleanLine = rawLine.replace(/\s+$/, '');
+      cleanLine = workingLine.replace(/\s+$/, '');
     } else {
       // 普通文字段落去除首尾多餘縮排，防止誤觸縮排代碼區塊
-      cleanLine = trimmedLine;
+      cleanLine = workingLine.trim();
     }
 
     // 尾隨空白處理：若末尾剛好是 2 個空格則保留（代表軟換行），其餘移除
-    const hasSoftBreak = /[^\s]  $/.test(rawLine);
+    const hasSoftBreak = /[^\s]  $/.test(workingLine);
     if (!hasSoftBreak && !isListItem) {
       cleanLine = cleanLine.replace(/\s+$/, '');
     }
@@ -97,25 +112,34 @@ export function normalizeMarkdown(markdown) {
 
   let text = normalizedLines.join('\n');
 
-  // 1. 確保標題前有空行（非文件開頭）
-  text = text.replace(/([^\n])\n(#{1,6}\s+[^\n]+)/g, '$1\n\n$2');
+  // 1. 移除無意義或導致白底隱形的純白/純黑/近似黑字體顏色標籤
+  text = text.replace(/<span style="color:\s*#(?:ffffff|fff|000000|000|1d1c1d)\s*">([\s\S]*?)<\/span>/gi, '$1');
 
-  // 2. 確保標題後有空行（除非緊接另一個標題）
-  text = text.replace(/(#{1,6}\s+[^\n]+)\n([^\n#])/g, '$1\n\n$2');
-
-  // 3. 確保水平分隔線前後有空行 (避免緊接文字被誤判為 setext heading)
-  text = text.replace(/([^\n])\n(---|\*\*\*|___)(?:\n|$)/g, '$1\n\n$2\n');
-  text = text.replace(/(?:\n|^)(---|\*\*\*|___)\n([^\n])/g, '\n$1\n\n$2');
-
-  // 4. 合併相鄰且相同顏色的 <span> 標籤與相鄰粗體標記 (常見於 ODT 碎片化樣式節點)
+  // 2. 合併碎片化之相鄰同色 <span>、粗體 (**)、刪除線 (~~) 與底線 (<u>) 標籤
   let prevText;
   do {
     prevText = text;
-    text = text.replace(/<span style="color:(#[0-9a-fA-F]{3,6})">([^<\n]*?)<\/span><span style="color:\1">([^<\n]*?)<\/span>/g, '<span style="color:$1">$2$3</span>');
-    text = text.replace(/\*\*([^*\n]+)\*\*\*\*([^*\n]+)\*\*/g, '**$1$2**');
+    text = text.replace(/<span style="color:(#[0-9a-fA-F]{3,6})">([^<\n]*?)<\/span>([ \t]*)<span style="color:\1">([^<\n]*?)<\/span>/gi, '<span style="color:$1">$2$3$4</span>');
+    text = text.replace(/\*\*([^*\n]+)\*\*([ \t]*)\*\*([^*\n]+)\*\*/g, '**$1$2$3**');
+    text = text.replace(/~~([^~\n]+)~~~~([^~\n]+)~~/g, '~~$1$2~~');
+    text = text.replace(/<u>([^<\n]*?)<\/u>([ \t]*)<u>([^<\n]*?)<\/u>/g, '<u>$1$2$3</u>');
   } while (text !== prevText);
 
-  // 5. 收斂 3 個或以上連續空行
+  // 3. 確保標題前有空行（非文件開頭）
+  text = text.replace(/([^\n])\n(#{1,6}\s+[^\n]+)/g, '$1\n\n$2');
+
+  // 4. 確保標題後有空行（除非緊接另一個標題）
+  text = text.replace(/(#{1,6}\s+[^\n]+)\n([^\n#])/g, '$1\n\n$2');
+
+  // 5. 確保表格區塊前後有空行
+  text = text.replace(/([^\n|])\n(\|[^\n]+\|\n\|[\s:|-]+\|)/g, '$1\n\n$2');
+  text = text.replace(/(\|[^\n]+\|)\n([^\n|])/g, '$1\n\n$2');
+
+  // 6. 確保水平分隔線前後有空行 (避免緊接文字被誤判為 setext heading)
+  text = text.replace(/([^\n])\n(---|\*\*\*|___)(?:\n|$)/g, '$1\n\n$2\n');
+  text = text.replace(/(?:\n|^)(---|\*\*\*|___)\n([^\n])/g, '\n$1\n\n$2');
+
+  // 7. 收斂 3 個或以上連續空行
   text = text.replace(/\n{3,}/g, '\n\n').trim();
 
   return text ? text + '\n' : '';
